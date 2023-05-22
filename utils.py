@@ -3,14 +3,16 @@ import torch
 
 
 class ReplayBuffer(object):
-	def __init__(self, state_dim, action_dim, max_size=int(1e6)):
+	def __init__(self, obs_space, action_space, max_size=int(1e6)):
 		self.max_size = max_size
 		self.ptr = 0
 		self.size = 0
 
-		self.state = np.zeros((max_size, state_dim))
-		self.action = np.zeros((max_size, action_dim))
-		self.next_state = np.zeros((max_size, state_dim))
+		self.state_jug = np.zeros((max_size, obs_space[0].shape[0]))
+		self.state_particles = np.zeros((max_size, *obs_space[1].shape))
+		self.action = np.zeros((max_size, action_space.shape[0]))
+		self.next_state_jug = np.zeros((max_size, obs_space[0].shape[0]))
+		self.next_state_particles = np.zeros((max_size, *obs_space[1].shape))
 		self.reward = np.zeros((max_size, 1))
 		self.not_done = np.zeros((max_size, 1))
 
@@ -18,9 +20,11 @@ class ReplayBuffer(object):
 
 
 	def add(self, state, action, next_state, reward, done):
-		self.state[self.ptr] = state
+		self.state_jug[self.ptr] = state[0]
+		self.state_particles[self.ptr] = state[1]
 		self.action[self.ptr] = action
-		self.next_state[self.ptr] = next_state
+		self.next_state_jug[self.ptr] = next_state[0]
+		self.next_state_particles[self.ptr] = next_state[1]
 		self.reward[self.ptr] = reward
 		self.not_done[self.ptr] = 1. - done
 
@@ -32,9 +36,11 @@ class ReplayBuffer(object):
 		ind = np.random.randint(0, self.size, size=batch_size)
 
 		return (
-			torch.FloatTensor(self.state[ind]).to(self.device),
+			torch.FloatTensor(self.state_jug[ind]).to(self.device),
+			torch.FloatTensor(self.state_particles[ind]).to(self.device),
 			torch.FloatTensor(self.action[ind]).to(self.device),
-			torch.FloatTensor(self.next_state[ind]).to(self.device),
+			torch.FloatTensor(self.next_state_jug[ind]).to(self.device),
+			torch.FloatTensor(self.next_state_particles[ind]).to(self.device),
 			torch.FloatTensor(self.reward[ind]).to(self.device),
 			torch.FloatTensor(self.not_done[ind]).to(self.device)
 		)
