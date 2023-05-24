@@ -1,4 +1,4 @@
-# python run_policy.py --seed 1 --start_timesteps 100 --save_model --max_timesteps 1000 --eval_freq 100
+# python run_policy.py --seed 1 --save_model --max_timesteps 1000 --eval_freq 100
 
 import numpy as np
 import torch
@@ -48,7 +48,7 @@ if __name__ == "__main__":
 	parser.add_argument("--jerk_punish",type=float, default=0)
 	parser.add_argument("--explosion_punish",type=float, default=0)
 	parser.add_argument("--max_timesteps_epoch",type=int, default=500)
-	parser.add_argument("--scene_file",type=str, default="scene.json")
+	parser.add_argument("--scene_file",type=str, default="scene_test.json")
 	args = parser.parse_args()
 
 	file_name = f"{args.policy}_WaterPouring_{args.seed}"

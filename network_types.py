@@ -68,7 +68,7 @@ class Convolution_Actor(nn.Module):
 
 		self.architecture = (500, 400, 300)
 
-		self.conv = nn.Conv2d(1, 1, kernel_size=(1, obs_space[1].shape[1]), stride=1)
+		self.conv = nn.Conv2d(1, 1, kernel_size=(1, obs_space[1].shape[1]+obs_space[0].shape[0]), stride=1)
 		
 		self.linear_layers = nn.ModuleList()
 		self.linear_layers.append(nn.Linear(obs_space[1].shape[0] + obs_space[0].shape[0], self.architecture[0]))
@@ -81,7 +81,9 @@ class Convolution_Actor(nn.Module):
 		
 
 	def forward(self, state_jug, state_particles):
-		a = torch.unsqueeze(state_particles, 1)
+		t = state_jug.unsqueeze(1).expand(-1, 350, -1)
+		a = torch.cat([state_particles, t], 2)
+		a = torch.unsqueeze(a, 1)
 		a = F.relu(self.conv(a))
 		a = torch.squeeze(a, dim=3)
 		a = torch.squeeze(a, dim=1)
@@ -102,7 +104,7 @@ class ConvolutionQNetwork(nn.Module):
 
 		self.architecture = (500, 400, 300)
 
-		self.conv = nn.Conv2d(1, 1, kernel_size=(1, obs_space[1].shape[1]), stride=1)
+		self.conv = nn.Conv2d(1, 1, kernel_size=(1, obs_space[1].shape[1]+obs_space[0].shape[0]), stride=1)
 		
 		self.linear_layers = nn.ModuleList()
 		self.linear_layers.append(nn.Linear(obs_space[1].shape[0] + obs_space[0].shape[0] + action_space.shape[0], self.architecture[0]))
@@ -113,7 +115,9 @@ class ConvolutionQNetwork(nn.Module):
 		# TODO check for norm stuff
 
 	def forward(self, state_jug, state_particles, action):
-		q = torch.unsqueeze(state_particles, 1)
+		t = state_jug.unsqueeze(1).expand(-1, 350, -1)
+		q = torch.cat([state_particles, t], 2)
+		q = torch.unsqueeze(q, 1)
 		q = F.relu(self.conv(q))
 		q = torch.squeeze(q, dim=3)
 		q = torch.squeeze(q, dim=1)
