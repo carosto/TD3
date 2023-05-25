@@ -9,9 +9,9 @@ import os
 if not os.path.exists("./RandomTrajectories"):
         os.makedirs("./RandomTrajectories")
 
-for k in range(100):
+for k in range(500):
 
-    trial_length = random.randint(200, 500) # choose a trial length similar to the real trials
+    trial_length = random.randint(300, 500) # choose a trial length similar to the real trials
 
     timesteps = 1/trial_length 
 

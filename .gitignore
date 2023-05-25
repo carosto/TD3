@@ -1,0 +1,7 @@
+__pycache__/
+results/
+models/
+RandomTrajectories/
+pretrained_models/
+pretrained_models_gpu/
+pretrained_models_500/
