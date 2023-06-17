@@ -15,28 +15,21 @@ from water_pouring.envs.pouring_env_x_rotation_wrapper import XRotationWrapper
 from tqdm import trange
 
 import json
-
-import faulthandler
-
-
-faulthandler.enable()
-
 # Runs policy for X episodes and returns average reward
 # A fixed seed is used for the eval environment
-def eval_policy(policy, env_name, seed, eval_episodes=10):
-	eval_env = gym.make(env_name)
-	eval_env = XRotationWrapper(eval_env)
+def eval_policy(policy, eval_env, seed, eval_episodes=10):
 	eval_env.seed(seed + 100)
 
 	avg_reward = 0.
-	for _ in trange(eval_episodes):
+	for _ in range(eval_episodes):
 		state, done = eval_env.reset()[0], False
-		for i in trange(200):#while not done:
-			action = policy.select_action(np.concatenate([s.flatten() for s in state]).ravel())
+		for i in range(env.max_timesteps):#while not done:
+			action = policy.select_action(state)
 			state, reward, terminated, truncated, _ = eval_env.step(action)
+			avg_reward += reward
 			if terminated or truncated:
 				done = True
-			avg_reward += reward
+				break
 
 	avg_reward /= eval_episodes
 
@@ -49,6 +42,7 @@ def eval_policy(policy, env_name, seed, eval_episodes=10):
 if __name__ == "__main__":
 	
 	parser = argparse.ArgumentParser()
+	parser.add_argument("--model_id", type=int) # id of the model
 	parser.add_argument("--policy", default="TD3")                  # Policy name (TD3, DDPG or OurDDPG)
 	parser.add_argument("--env", default="water_pouring:WaterPouringEnvBase-v0")          # OpenAI gym environment name
 	parser.add_argument("--seed", default=0, type=int)              # Sets Gym, PyTorch and Numpy seeds
@@ -64,6 +58,7 @@ if __name__ == "__main__":
 	parser.add_argument("--policy_freq", default=2, type=int)       # Frequency of delayed policy updates
 	parser.add_argument("--save_model", action="store_true")        # Save model and optimizer parameters
 	parser.add_argument("--load_model", default="")                 # Model load file name, "" doesn't load, "default" uses file_name
+	parser.add_argument("--use_layer_normalization", action="store_true") # Whether to use layer normalization in the networks
 
 	parser.add_argument("--model_type", type=str)
 
@@ -76,13 +71,16 @@ if __name__ == "__main__":
 	parser.add_argument("--scene_file",type=str, default="scene.json")
 	args = parser.parse_args()
 
-	file_name = f"{args.policy}_WaterPouring_{args.seed}"
+	file_name = f"{args.policy}_WaterPouring_{args.model_id}_{args.seed}"
 	print("---------------------------------------")
-	print(f"Policy: {args.policy}, Env: {args.env}, Seed: {args.seed}, Model: {args.model_type}")
+	print(f"Model ID: {args.model_id}, Policy: {args.policy}, Env: {args.env}, Seed: {args.seed}, Model: {args.model_type}")
 	print("---------------------------------------")
 
 	if not os.path.exists("./results"):
 		os.makedirs("./results")
+
+	if not os.path.exists("./results/evaluations"):
+		os.makedirs("./results/evaluations")
 
 	if args.save_model and not os.path.exists("./models"):
 		os.makedirs("./models")
@@ -123,6 +121,7 @@ if __name__ == "__main__":
 		"q_network_class": q_network_class,
 		"obs_space": env.observation_space,
 		"action_space": env.action_space,
+		"layer_normalization": args.use_layer_normalization,
 		"max_action": max_action,
 		"discount": args.discount,
 		"tau": args.tau,
@@ -144,8 +143,11 @@ if __name__ == "__main__":
 	replay_buffer = utils.ReplayBuffer(env.observation_space, env.action_space)
 	
 	# Evaluate untrained policy
-	#evaluations = [eval_policy(policy, args.env, args.seed, eval_episodes=2)]
-	#print('Done evaluating untrained policy')
+	evaluations = [eval_policy(policy, env, args.seed, eval_episodes=2)]
+	with open(f'./results/evaluations/eval_{args.model_id}_{args.seed}.csv', 'a') as file:
+		file.write(';'.join([str(0), str(evaluations[0])]))
+		file.write('\n')
+	print('Done evaluating untrained policy')
 
 	state, done = env.reset()[0], False
 	episode_reward = 0
@@ -154,11 +156,11 @@ if __name__ == "__main__":
 
 	save_info = list(env_kwargs.values())
 	save_info.append(args.model_type)
+	save_info.append("layer normalization" if args.use_layer_normalization else "no normalization")
 	save_info = ';'.join([str(r) for r in save_info])
 
-	with open(f'./results/{args.policy}_WaterPouring_{args.seed}.csv', 'a') as file:
+	with open(f'./results/infos/infos_{args.model_id}_{args.seed}.txt', 'a') as file:
 		file.write(save_info)
-		file.write('\n')
 
 	for t in trange(int(args.max_timesteps)):
 		
@@ -197,7 +199,7 @@ if __name__ == "__main__":
 
 			results = [t+1, episode_num+1, episode_timesteps, episode_reward]
 			results = ';'.join([str(r) for r in results])
-			with open(f'./results/{args.policy}_WaterPouring_{args.seed}.csv', 'a') as file:
+			with open(f'./results/{args.policy}_WaterPouring_{args.model_id}_{args.seed}.csv', 'a') as file:
 				file.write(results)
 				file.write('\n')
 
@@ -209,7 +211,9 @@ if __name__ == "__main__":
 
 		# Evaluate episode
 		if (t + 1) % args.eval_freq == 0:
-			#evaluations.append(eval_policy(policy, args.env, args.seed, eval_episodes=1))
-			#np.save(f"./results/{file_name}", evaluations)
+			evaluations.append(eval_policy(policy, env, args.seed))
+			with open(f'./results/evaluations/eval_{args.model_id}_{args.seed}.csv', 'a') as file:
+				file.write(';'.join([str(t+1), str(evaluations[-1])]))
+				file.write('\n')
 			if args.save_model: policy.save(f"./models/{file_name}")
 			print("saved")
