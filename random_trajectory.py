@@ -6,24 +6,26 @@ from scipy.spatial.transform import Rotation as R
 
 import os
 
-if not os.path.exists("./RandomTrajectories"):
-        os.makedirs("./RandomTrajectories")
+path = "RandomTrajectories/prerotated"
 
-for k in range(500):
+if not os.path.exists(f"./{path}"):
+        os.makedirs(f"./{path}")
 
-    trial_length = random.randint(300, 500) # choose a trial length similar to the real trials
+for k in range(5,500):
+
+    trial_length = random.randint(400, 500) # choose a trial length similar to the real trials
 
     timesteps = 1/trial_length 
 
-    start_rotation_jug = 90#R.from_euler('XYZ', [90, 180, 0], degrees=True).as_euler('XYZ', degrees=True)
+    start_rotation_jug = 130# 90#R.from_euler('XYZ', [90, 180, 0], degrees=True).as_euler('XYZ', degrees=True)
 
-    pouring_x = random.uniform(230, 270)
+    pouring_x = random.uniform(170, 200)
     #pouring_rotation_jug = R.from_euler('XYZ', [pouring_x, start_rotation_jug[1], start_rotation_jug[2]], degrees=True).as_euler('XYZ', degrees=True)
     wait_pouring = random.uniform(50, 70)
     waited = 0
     trajectory = []
     previous_rotation = start_rotation_jug
-    for _ in range(10): # wait for liquid to settle
+    for _ in range(50): # wait for liquid to settle
         trajectory.append(0)
     for i in range(trial_length):
         t = i * timesteps
@@ -38,8 +40,8 @@ for k in range(500):
         previous_rotation = previous_rotation + step
         trajectory.append(step)
     trajectory = np.array(trajectory)
-    np.save(f'RandomTrajectories/random_trajectory_{k}.npy', trajectory)
-    print(f'Trajectory saved to RandomTrajectories/random_trajectory_{k}.npy')
+    np.save(f'{path}/random_trajectory_{k}.npy', trajectory)
+    print(f'Trajectory saved to {path}/random_trajectory_{k}.npy')
 #print(trajectory)
 
 

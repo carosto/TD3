@@ -3,15 +3,12 @@ import gymnasium as gym
 import numpy as np
 import sys
 import os
+import argparse
 
 import torch
 import torch.nn as nn
 
 from tqdm import tqdm
-
-import faulthandler
-
-faulthandler.enable()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -19,8 +16,40 @@ if torch.cuda.is_available():
 	print("The following CUDA device is being used: ", torch.cuda.get_device_name(0))
 else:
 	print("No CUDA is available.")
+        
+parser = argparse.ArgumentParser()
+parser.add_argument("--model_type", type=str, default="linear") # type of the model (linear or convolution)
+parser.add_argument("--scene_file", type=str, default="scene.json") # type of the model (linear or convolution)
+parser.add_argument("--lr", type=float, default=3e-4) # learning rate for policy optimizer
+parser.add_argument("--use_layer_normalization", action="store_true") # Whether to use layer normalization in the networks
+parser.add_argument("--folder_name", type=str, default="pretrained_actor") # folder for saving the model
+parser.add_argument("--trajectories_folder", type=str, default="RandomTrajectories") # folder where the trajectories can be found
 
-model_type = 'linear'
+
+parser.add_argument("--slurm_job_array", action="store_true")
+parser.add_argument("--slurm_job_id", type=int, default=-1)
+args = parser.parse_args()
+
+if args.slurm_job_array:
+    if args.slurm_job_id == 1:
+        args.model_type = "linear"
+        args.folder_name = "pretrained_actor_prerotated_layer_norm"
+        args.use_layer_normalization = True
+    elif args.slurm_job_id == 2:
+        args.model_type = "convolution"
+        args.folder_name = "pretrained_actor_prerotated_layer_norm"
+        args.use_layer_normalization = True
+    elif args.slurm_job_id == 3:
+        args.model_type = "linear"
+        args.folder_name = "pretrained_actor_prerotated_no_norm"
+        args.use_layer_normalization = False
+    elif args.slurm_job_id == 4:
+        args.model_type = "convolution"
+        args.folder_name = "pretrained_actor_prerotated_no_norm"
+        args.use_layer_normalization = False
+    
+
+model_type = args.model_type
 
 if model_type == "linear":
     from network_types import LinearActor
@@ -35,21 +64,21 @@ env_kwargs = {
         "jerk_punish": 0.1,
         "particle_explosion_punish": 0.1,
         "max_timesteps": 500,
-        "scene_file": "scene.json"
+        "scene_file": args.scene_file
     }
 env = gym.make("WaterPouringEnvBase-v0", **env_kwargs)
 wrapped_env = XRotationWrapper(env)
 
-actor = actor_class(wrapped_env.observation_space, wrapped_env.action_space).to(device)
-actor_optimizer = torch.optim.Adam(actor.parameters(), lr=3e-4)
+actor = actor_class(wrapped_env.observation_space, wrapped_env.action_space, layer_normalization=args.use_layer_normalization).to(device)
+actor_optimizer = torch.optim.Adam(actor.parameters(), lr=args.lr)
 
 loss_function = nn.MSELoss()
 
-folder = "pretrained_models_500"
+folder = args.folder_name
 os.makedirs(folder, exist_ok=True)
 
 for k in range(500):
-    actions = np.load(f"RandomTrajectories/random_trajectory_{k}.npy")
+    actions = np.load(f"{args.trajectories_folder}/random_trajectory_{k}.npy")
     
     print("Max steps: ", len(actions))
 

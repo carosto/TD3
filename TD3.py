@@ -25,21 +25,23 @@ class TD3(object):
         q_network_class,
         obs_space,
         action_space,
+        layer_normalization=False,
         max_action=1,
         discount=0.99,
         tau=0.005,
         policy_noise=0.2,
         noise_clip=0.5,
-        policy_freq=2
+        policy_freq=2,
+        lr=3e-4
     ):
 
-        self.actor = actor_class(obs_space, action_space).to(device)
+        self.actor = actor_class(obs_space, action_space, layer_normalization).to(device)
         self.actor_target = copy.deepcopy(self.actor)
-        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=3e-4)
+        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=lr)
 
-        self.critic = Critic(obs_space, action_space, q_network_class).to(device)
+        self.critic = Critic(obs_space, action_space, q_network_class, layer_normalization).to(device)
         self.critic_target = copy.deepcopy(self.critic)
-        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=3e-4)
+        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=lr)
 
         self.max_action = max_action
         self.discount = discount
@@ -119,10 +121,15 @@ class TD3(object):
 
 
     def load(self, folder):
-        self.critic.load_state_dict(torch.load(os.path.join(folder, "critic")))
-        self.critic_optimizer.load_state_dict(torch.load(os.path.join(folder, "critic_optimizer")))
+        self.critic.load_state_dict(torch.load(os.path.join(folder, "critic"), map_location=device))
+        self.critic_optimizer.load_state_dict(torch.load(os.path.join(folder, "critic_optimizer"), map_location=device))
         self.critic_target = copy.deepcopy(self.critic)
 
-        self.actor.load_state_dict(torch.load(os.path.join(folder, "actor")))
-        self.actor_optimizer.load_state_dict(torch.load(os.path.join(folder, "actor_optimizer")))
+        self.actor.load_state_dict(torch.load(os.path.join(folder, "actor"), map_location=device))
+        self.actor_optimizer.load_state_dict(torch.load(os.path.join(folder, "actor_optimizer"), map_location=device))
         self.actor_target = copy.deepcopy(self.actor)
+
+    def load_actor(self, folder, actor_name):
+        self.actor.load_state_dict(torch.load(os.path.join(folder, f"actor_{actor_name}"), map_location=device))
+        self.actor_optimizer.load_state_dict(torch.load(os.path.join(folder, f"actor_optimizer_{actor_name}"), map_location=device))
+        self.actor_target = copy.deepcopy(self.actor) 

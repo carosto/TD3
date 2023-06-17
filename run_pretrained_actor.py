@@ -3,15 +3,12 @@ import gymnasium as gym
 import numpy as np
 import sys
 import os
+import argparse
 
 import torch
 import torch.nn as nn
 
 from tqdm import tqdm
-
-import faulthandler
-
-faulthandler.enable()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -20,7 +17,41 @@ if torch.cuda.is_available():
 else:
 	print("No CUDA is available.")
 
-model_type = 'linear'
+parser = argparse.ArgumentParser()
+parser.add_argument("--model_type", type=str, default="linear") # type of the model (linear or convolution)
+parser.add_argument("--scene_file", type=str, default="scene.json") # type of the model (linear or convolution)
+parser.add_argument("--use_layer_normalization", action="store_true") # Whether to use layer normalization in the networks
+parser.add_argument("--folder_name", type=str, default="pretrained_actor") # folder for saving the model
+parser.add_argument("--output_directory", type=str, default="SimulationOutput")
+
+
+parser.add_argument("--slurm_job_array", action="store_true")
+parser.add_argument("--slurm_job_id", type=int, default=-1)
+args = parser.parse_args()
+
+if args.slurm_job_array:
+    if args.slurm_job_id == 1:
+        args.model_type = "linear"
+        args.folder_name = "pretrained_actor_prerotated_layer_norm"
+        args.use_layer_normalization = True
+        args.output_directory = "OutputPretrainedActor_prerotated_linear_norm"
+    elif args.slurm_job_id == 2:
+        args.model_type = "convolution"
+        args.folder_name = "pretrained_actor_prerotated_layer_norm"
+        args.use_layer_normalization = True
+        args.output_directory = "OutputPretrainedActor_prerotated_convolution_norm"
+    elif args.slurm_job_id == 3:
+        args.model_type = "linear"
+        args.folder_name = "pretrained_actor_prerotated_no_norm"
+        args.use_layer_normalization = False
+        args.output_directory = "OutputPretrainedActor_prerotated_linear_no_norm"
+    elif args.slurm_job_id == 4:
+        args.model_type = "convolution"
+        args.folder_name = "pretrained_actor_prerotated_no_norm"
+        args.use_layer_normalization = False
+        args.output_directory = "OutputPretrainedActor_prerotated_convolution_no_norm"
+
+model_type = args.model_type
 
 if model_type == "linear":
     from network_types import LinearActor
@@ -35,16 +66,17 @@ env_kwargs = {
         "jerk_punish": 0.1,
         "particle_explosion_punish": 0.1,
         "max_timesteps": 500,
-        "scene_file": "scene_test.json"
+        "scene_file": args.scene_file, 
+        "output_directory": args.output_directory
     }
 env = gym.make("WaterPouringEnvBase-v0", **env_kwargs)
 wrapped_env = XRotationWrapper(env)
 
-actor = actor_class(wrapped_env.observation_space, wrapped_env.action_space).to(device)
+actor = actor_class(wrapped_env.observation_space, wrapped_env.action_space, layer_normalization=args.use_layer_normalization).to(device)
 
-folder = "pretrained_models_500"
+folder = args.folder_name
 
-actor.load_state_dict(torch.load(os.path.join(folder, f"actor_{model_type}"), map_location=torch.device('cpu')))
+actor.load_state_dict(torch.load(os.path.join(folder, f"actor_{model_type}"), map_location=device))
 
 obs = wrapped_env.reset()[0]
 sum_reward = 0
