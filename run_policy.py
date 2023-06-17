@@ -16,20 +16,13 @@ from tqdm import trange
 
 import json
 
-import faulthandler
-
-
-faulthandler.enable()
-
 if __name__ == "__main__":
 	
 	parser = argparse.ArgumentParser()
+	parser.add_argument("--model_id", type=int) # id of the model
 	parser.add_argument("--policy", default="TD3")                  # Policy name (TD3, DDPG or OurDDPG)
 	parser.add_argument("--env", default="water_pouring:WaterPouringEnvBase-v0")          # OpenAI gym environment name
 	parser.add_argument("--seed", default=0, type=int)              # Sets Gym, PyTorch and Numpy seeds
-	parser.add_argument("--start_timesteps", default=25e3, type=int)# Time steps initial random policy is used
-	parser.add_argument("--eval_freq", default=5e3, type=int)       # How often (time steps) we evaluate
-	parser.add_argument("--max_timesteps", default=1e6, type=int)   # Max time steps to run
 	parser.add_argument("--expl_noise", default=0.1)                # Std of Gaussian exploration noise
 	parser.add_argument("--batch_size", default=256, type=int)      # Batch size for both actor and critic
 	parser.add_argument("--discount", default=0.99, type=float)                 # Discount factor
@@ -37,10 +30,14 @@ if __name__ == "__main__":
 	parser.add_argument("--policy_noise", default=0.2)              # Noise added to target policy during critic update
 	parser.add_argument("--noise_clip", default=0.5)                # Range to clip target policy noise
 	parser.add_argument("--policy_freq", default=2, type=int)       # Frequency of delayed policy updates
-	parser.add_argument("--save_model", action="store_true")        # Save model and optimizer parameters
-	parser.add_argument("--load_model", default="")                 # Model load file name, "" doesn't load, "default" uses file_name
+	parser.add_argument("--load_model", default="default")                 # Model load file name, "" doesn't load, "default" uses file_name
 
-	parser.add_argument("--model_type", type=str)
+	parser.add_argument("--model_type", type=str, default="linear")
+	parser.add_argument("--use_layer_normalization", action="store_true")
+
+	parser.add_argument("--read_infos", action="store_true") # whether to read the models parameters from the info file or not
+	parser.add_argument("--automatic_output_dir", action="store_true") # if set, the output directory is set automatically, based on the seed
+
 
 	# environment parameters
 	parser.add_argument("--hit_reward",type=float, default=0.5)
@@ -49,21 +46,40 @@ if __name__ == "__main__":
 	parser.add_argument("--explosion_punish",type=float, default=0)
 	parser.add_argument("--max_timesteps_epoch",type=int, default=500)
 	parser.add_argument("--scene_file",type=str, default="scene_test.json")
+	parser.add_argument("--output_directory", type=str, default="SimulationOutput")
 	args = parser.parse_args()
 
-	file_name = f"{args.policy}_WaterPouring_{args.seed}"
-	print("---------------------------------------")
-	print(f"Policy: {args.policy}, Env: {args.env}, Seed: {args.seed}, Model: {args.model_type}")
-	print("---------------------------------------")
+	
 
+	
 	env_kwargs = {
         "spill_punish" : args.spill_punish,
         "hit_reward": args.hit_reward,
         "jerk_punish": args.jerk_punish,
         "particle_explosion_punish": args.explosion_punish,
         "max_timesteps": args.max_timesteps_epoch,
-        "scene_file": args.scene_file
+        "scene_file": args.scene_file,
+		"output_directory": args.output_directory
     }
+
+	if args.read_infos:
+		info = open(f"./results/infos/infos_{args.model_id}_{args.seed}.txt").read().split(";")
+		env_kwargs["spill_punish"] = float(info[0])
+		env_kwargs["hit_reward"] = float(info[1])
+		env_kwargs["jerk_punish"] = float(info[2])
+		env_kwargs["particle_explosion_punish"] = float(info[3])
+		env_kwargs["max_timesteps"] = int(info[4])
+
+		args.model_type = info[6]
+	
+	if args.automatic_output_dir:
+		env_kwargs["output_directory"] = f"SimulationOutput_{args.model_id}_{args.seed}"
+
+	file_name = f"{args.policy}_WaterPouring_{args.model_id}_{args.seed}"
+	print("---------------------------------------")
+	print(f"Model ID: {args.model_id}, Policy: {args.policy}, Env: {args.env}, Seed: {args.seed}, Model: {args.model_type}")
+	print("---------------------------------------")
+
 
 	env = gym.make(args.env, **env_kwargs)
 	env = XRotationWrapper(env)
@@ -92,6 +108,7 @@ if __name__ == "__main__":
 		"q_network_class": q_network_class,
 		"obs_space": env.observation_space,
 		"action_space": env.action_space,
+		"layer_normalization": args.use_layer_normalization,
 		"max_action": max_action,
 		"discount": args.discount,
 		"tau": args.tau,
@@ -115,7 +132,7 @@ if __name__ == "__main__":
 	episode_timesteps = 0
 	episode_num = 0
 
-	for t in trange(int(args.max_timesteps)):
+	for t in trange(int(env_kwargs["max_timesteps"])):
 		
 		episode_timesteps += 1
 
