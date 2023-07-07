@@ -43,24 +43,31 @@ if __name__ == "__main__":
 	
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--model_id", type=int) # id of the model
-	parser.add_argument("--policy", default="TD3")                  # Policy name (TD3, DDPG or OurDDPG)
+	parser.add_argument("--policy", default="TD3")                  # Policy name 
 	parser.add_argument("--env", default="water_pouring:WaterPouringEnvBase-v0")          # OpenAI gym environment name
 	parser.add_argument("--seed", default=0, type=int)              # Sets Gym, PyTorch and Numpy seeds
 	parser.add_argument("--start_timesteps", default=25e3, type=int)# Time steps initial random policy is used
 	parser.add_argument("--eval_freq", default=5e3, type=int)       # How often (time steps) we evaluate
 	parser.add_argument("--max_timesteps", default=1e6, type=int)   # Max time steps to train
-	parser.add_argument("--expl_noise", default=0.1)                # Std of Gaussian exploration noise
+	parser.add_argument("--expl_noise", default=0.1, type=float)                # Std of Gaussian exploration noise
 	parser.add_argument("--batch_size", default=256, type=int)      # Batch size for both actor and critic
 	parser.add_argument("--discount", default=0.99, type=float)                 # Discount factor
 	parser.add_argument("--tau", default=0.005)                     # Target network update rate
 	parser.add_argument("--policy_noise", default=0.2)              # Noise added to target policy during critic update
 	parser.add_argument("--noise_clip", default=0.5)                # Range to clip target policy noise
 	parser.add_argument("--policy_freq", default=2, type=int)       # Frequency of delayed policy updates
+	parser.add_argument("--lr", default=3e-4, type=float)       # learning rate of networks
 	parser.add_argument("--save_model", action="store_true")        # Save model and optimizer parameters
 	parser.add_argument("--load_model", default="")                 # Model load file name, "" doesn't load, "default" uses file_name
 	parser.add_argument("--use_layer_normalization", action="store_true") # Whether to use layer normalization in the networks
 
+	# parameters for imitation learning
+	parser.add_argument("--imitation_learning", action="store_true") # toggle on if imitation learning is used
+	parser.add_argument("--actor_folder", default=None, type=str) # folder where the pretrained actor is located
+	parser.add_argument("--actor_name", default=None, type=str) # name appended to the actor (besides actor/actor_optimizer)
+
 	parser.add_argument("--model_type", type=str)
+	parser.add_argument("--slurm_job_array", action="store_true")
 
 	# environment parameters
 	parser.add_argument("--hit_reward",type=float, default=0.5)
@@ -70,6 +77,53 @@ if __name__ == "__main__":
 	parser.add_argument("--max_timesteps_epoch",type=int, default=500)
 	parser.add_argument("--scene_file",type=str, default="scene.json")
 	args = parser.parse_args()
+
+	if args.slurm_job_array:
+		if args.seed == 1:
+			args.spill_punish = 0.1
+			args.hit_reward = 0.1
+			args.jerk_punish = 0.1
+			args.model_type = "linear"
+		elif args.seed == 2:
+			args.spill_punish = 0.01
+			args.hit_reward = 0.1
+			args.jerk_punish = 0.01
+			args.model_type = "linear"
+		elif args.seed == 3:
+			args.spill_punish = 0.1
+			args.hit_reward = 0.01
+			args.jerk_punish = 0.1
+			args.model_type = "linear"
+		elif args.seed == 4:
+			args.spill_punish = 0.1
+			args.hit_reward = 0.1
+			args.jerk_punish = 0.01
+			args.model_type = "linear"
+		elif args.seed == 5:
+			args.spill_punish = 0.01
+			args.hit_reward = 0.01
+			args.jerk_punish = 0.01
+			args.model_type = "linear"
+		elif args.seed == 6:
+			args.spill_punish = 0.01
+			args.hit_reward = 0.1
+			args.jerk_punish = 0.01
+			args.model_type = "convolution"
+		elif args.seed == 7:
+			args.spill_punish = 0.1
+			args.hit_reward = 0.01
+			args.jerk_punish = 0.1
+			args.model_type = "convolution"
+		elif args.seed == 8:
+			args.spill_punish = 25
+			args.hit_reward = 1
+			args.jerk_punish = 0
+			args.model_type = "linear"
+		elif args.seed == 9:
+			args.spill_punish = 25
+			args.hit_reward = 1
+			args.jerk_punish = 0
+			args.model_type = "convolution"
 
 	file_name = f"{args.policy}_WaterPouring_{args.model_id}_{args.seed}"
 	print("---------------------------------------")
@@ -127,7 +181,8 @@ if __name__ == "__main__":
 		"tau": args.tau,
 		"policy_noise": args.policy_noise * max_action,
 		"noise_clip": args.noise_clip * max_action,
-		"policy_freq": args.policy_freq
+		"policy_freq": args.policy_freq,
+		"lr": args.lr
 	}
 
 	# Initialize policy
@@ -135,6 +190,9 @@ if __name__ == "__main__":
 	print(policy.actor)
 	print(policy.critic)
 
+	if args.imitation_learning:
+		policy.load_actor(args.actor_folder, args.actor_name)
+		print("Pretrained actor loaded")
 
 	if args.load_model != "":
 		policy_file = file_name if args.load_model == "default" else args.load_model
@@ -143,6 +201,7 @@ if __name__ == "__main__":
 	replay_buffer = utils.ReplayBuffer(env.observation_space, env.action_space)
 	
 	# Evaluate untrained policy
+	print('Evaluating untrained policy')
 	evaluations = [eval_policy(policy, env, args.seed, eval_episodes=2)]
 	with open(f'./results/evaluations/eval_{args.model_id}_{args.seed}.csv', 'a') as file:
 		file.write(';'.join([str(0), str(evaluations[0])]))
@@ -179,6 +238,8 @@ if __name__ == "__main__":
 		next_state, reward, terminated, truncated, _ = env.step(action) 
 		if terminated or truncated:
 			done = True
+			print(env.simulation.n_particles_pouring)
+			
 		done_bool = float(done) if episode_timesteps < env.max_timesteps else 0
 
 		# Store data in replay buffer

@@ -81,6 +81,11 @@ class TD3(object):
             target_Q = torch.min(target_Q1, target_Q2)
             target_Q = reward + not_done * self.discount * target_Q
 
+        results = [target_Q1, target_Q2, target_Q]
+        results = ';'.join([str(r) for r in results])
+        with open(f'./results/TD3_WaterPouring_Q_values.csv', 'a') as file:
+            file.write(results)
+            file.write('\n')
         # Get current Q estimates
         current_Q1, current_Q2 = self.critic(state_jug, state_particles, action)
 

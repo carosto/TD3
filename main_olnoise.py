@@ -57,7 +57,7 @@ if __name__ == "__main__":
 	parser.add_argument("--policy_noise", default=0.2)              # Noise added to target policy during critic update
 	parser.add_argument("--noise_clip", default=0.5)                # Range to clip target policy noise
 	parser.add_argument("--policy_freq", default=2, type=int)       # Frequency of delayed policy updates
-	parser.add_argument("--lr", default=3e-4, type=float)       # Frequency of delayed policy updates
+	parser.add_argument("--lr", default=3e-4, type=float)       # learning rate of networks
 	parser.add_argument("--save_model", action="store_true")        # Save model and optimizer parameters
 	parser.add_argument("--load_model", default="")                 # Model load file name, "" doesn't load, "default" uses file_name
 	parser.add_argument("--use_layer_normalization", action="store_true") # Whether to use layer normalization in the networks
@@ -114,6 +114,16 @@ if __name__ == "__main__":
 			args.spill_punish = 0.1
 			args.hit_reward = 0.01
 			args.jerk_punish = 0.1
+			args.model_type = "convolution"
+		elif args.seed == 8:
+			args.spill_punish = 25
+			args.hit_reward = 1
+			args.jerk_punish = 0
+			args.model_type = "linear"
+		elif args.seed == 9:
+			args.spill_punish = 25
+			args.hit_reward = 1
+			args.jerk_punish = 0
 			args.model_type = "convolution"
 
 	file_name = f"{args.policy}_WaterPouring_{args.model_id}_{args.seed}"
@@ -231,6 +241,7 @@ if __name__ == "__main__":
 		next_state, reward, terminated, truncated, _ = env.step(action) 
 		if terminated or truncated:
 			done = True
+			print(env.simulation.n_particles_pouring)
 		done_bool = float(done) if episode_timesteps < env.max_timesteps else 0
 
 		# Store data in replay buffer
