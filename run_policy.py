@@ -75,7 +75,7 @@ if __name__ == "__main__":
 			kwargs = data['policy_kwargs']
 			more_env_kwargs = data['more_env_kwargs']
 
-			env_kwargs['scene_file'] = "scene_test_rotated.json" if args.prerotated_env else "s.json"
+			env_kwargs['scene_file'] = "scene_test_rotated.json" if args.prerotated_env else "scene_test.json"
 			env_kwargs['output_directory'] = args.output_directory
 
 		args.model_type = kwargs['actor_class']
