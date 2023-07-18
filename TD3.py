@@ -79,18 +79,13 @@ class TD3(object):
             # Compute the target Q value
             target_Q1, target_Q2 = self.critic_target(next_state_jug, next_state_particles, next_action)
             target_Q = torch.min(target_Q1, target_Q2)
-            target_Q = reward + not_done * self.discount * target_Q
-
-        results = [target_Q1, target_Q2, target_Q]
-        results = ';'.join([str(r) for r in results])
-        with open(f'./results/TD3_WaterPouring_Q_values.csv', 'a') as file:
-            file.write(results)
-            file.write('\n')
+            target_Q = reward + not_done * self.discount * target_Q # Bellman Equation
+            
         # Get current Q estimates
         current_Q1, current_Q2 = self.critic(state_jug, state_particles, action)
 
         # Compute critic loss
-        critic_loss = F.mse_loss(current_Q1, target_Q) + F.mse_loss(current_Q2, target_Q)
+        critic_loss = F.mse_loss(current_Q1, target_Q) + F.mse_loss(current_Q2, target_Q) # should be minimized
 
         # Optimize the critic
         self.critic_optimizer.zero_grad()
@@ -100,7 +95,7 @@ class TD3(object):
         # Delayed policy updates
         if self.total_it % self.policy_freq == 0:
 
-            # Compute actor losse
+            # Compute actor loss
             actor_loss = -self.critic.Q1(state_jug, state_particles, self.actor(state_jug, state_particles)).mean()
             
             # Optimize the actor 
@@ -114,6 +109,9 @@ class TD3(object):
 
             for param, target_param in zip(self.actor.parameters(), self.actor_target.parameters()):
                 target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
+
+            return [critic_loss, actor_loss]
+        return [critic_loss]
 
 
     def save(self, folder):
