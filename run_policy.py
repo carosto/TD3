@@ -47,6 +47,8 @@ if __name__ == "__main__":
 	parser.add_argument("--max_timesteps_epoch",type=int, default=500)
 	parser.add_argument("--scene_file",type=str, default="scene_test.json")
 	parser.add_argument("--output_directory", type=str, default="SimulationOutput")
+
+	parser.add_argument("--prerotated_env", action="store_true") # Whether to use the prerotated position 
 	args = parser.parse_args()
 
 	
@@ -62,15 +64,21 @@ if __name__ == "__main__":
 		"output_directory": args.output_directory
     }
 
-	if args.read_infos:
-		info = open(f"./results/infos/infos_{args.model_id}_{args.seed}.txt").read().split(";")
-		env_kwargs["spill_punish"] = float(info[0])
-		env_kwargs["hit_reward"] = float(info[1])
-		env_kwargs["jerk_punish"] = float(info[2])
-		env_kwargs["particle_explosion_punish"] = float(info[3])
-		env_kwargs["max_timesteps"] = int(info[4])
+	more_env_kwargs = {
+		"prerotated" : args.prerotated_env
+	}
 
-		args.model_type = info[6]
+	if args.read_infos:
+		with open(f"./results/infos/infos_{args.model_id}_{args.seed}.json") as json_file:
+			data = json.load(json_file)
+			env_kwargs = data['env_kwargs']
+			kwargs = data['policy_kwargs']
+			more_env_kwargs = data['more_env_kwargs']
+
+			env_kwargs['scene_file'] = "scene_test_rotated.json" if args.prerotated_env else "s.json"
+			env_kwargs['output_directory'] = args.output_directory
+
+		args.model_type = kwargs['actor_class']
 	
 	if args.automatic_output_dir:
 		env_kwargs["output_directory"] = f"SimulationOutput_{args.model_id}_{args.seed}"
@@ -82,7 +90,7 @@ if __name__ == "__main__":
 
 
 	env = gym.make(args.env, **env_kwargs)
-	env = XRotationWrapper(env)
+	env = XRotationWrapper(env, prerotated=more_env_kwargs['prerotated'])
 
 	print(env.action_space)
 
@@ -103,19 +111,25 @@ if __name__ == "__main__":
 		actor_class = Convolution_Actor 
 		q_network_class = ConvolutionQNetwork
 	
-	kwargs = {
-		"actor_class": actor_class,
-		"q_network_class": q_network_class,
-		"obs_space": env.observation_space,
-		"action_space": env.action_space,
-		"layer_normalization": args.use_layer_normalization,
-		"max_action": max_action,
-		"discount": args.discount,
-		"tau": args.tau,
-		"policy_noise": args.policy_noise * max_action,
-		"noise_clip": args.noise_clip * max_action,
-		"policy_freq": args.policy_freq
-	}
+	if args.read_infos:
+		kwargs['actor_class'] = actor_class
+		kwargs['q_network_class'] = q_network_class
+		kwargs['action_space'] = env.action_space
+		kwargs['obs_space'] = env.observation_space
+	else:
+		kwargs = {
+			"actor_class": actor_class,
+			"q_network_class": q_network_class,
+			"obs_space": env.observation_space,
+			"action_space": env.action_space,
+			"layer_normalization": args.use_layer_normalization,
+			"max_action": max_action,
+			"discount": args.discount,
+			"tau": args.tau,
+			"policy_noise": args.policy_noise * max_action,
+			"noise_clip": args.noise_clip * max_action,
+			"policy_freq": args.policy_freq
+		}
 
 	# Initialize policy
 	policy = TD3(**kwargs)
@@ -136,10 +150,7 @@ if __name__ == "__main__":
 		
 		episode_timesteps += 1
 
-		action = (
-			policy.select_action(state)
-			+ np.random.normal(0, max_action * args.expl_noise, size=env.action_space.shape[0])
-		).clip(-max_action, max_action)
+		action = policy.select_action(state)
 		print(action)
 
 		# Perform action
