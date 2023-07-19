@@ -75,7 +75,7 @@ if __name__ == "__main__":
 			kwargs = data['policy_kwargs']
 			more_env_kwargs = data['more_env_kwargs']
 
-			env_kwargs['scene_file'] = "scene_test_rotated.json" if args.prerotated_env else "scene_test.json"
+			env_kwargs['scene_file'] = "scene_test_rotated.json" if more_env_kwargs['prerotated'] else "scene_test.json"
 			env_kwargs['output_directory'] = args.output_directory
 
 		args.model_type = kwargs['actor_class']
@@ -107,9 +107,9 @@ if __name__ == "__main__":
 		actor_class = LinearActor 
 		q_network_class = LinearQNetwork
 	elif args.model_type == "convolution":
-		from network_types import Convolution_Actor, ConvolutionQNetwork 
-		actor_class = Convolution_Actor 
-		q_network_class = ConvolutionQNetwork
+		from network_types import ActorYannik, Q_networkYannik 
+		actor_class = ActorYannik 
+		q_network_class = Q_networkYannik
 	
 	if args.read_infos:
 		kwargs['actor_class'] = actor_class
