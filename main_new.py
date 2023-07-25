@@ -78,6 +78,7 @@ if __name__ == "__main__":
 	parser.add_argument("--jerk_punish",type=float, default=0)
 	parser.add_argument("--explosion_punish",type=float, default=0)
 	parser.add_argument("--max_timesteps_epoch",type=int, default=500)
+	parser.add_argument("--use_fill_limit", action="store_true")
 	#parser.add_argument("--scene_file",type=str, default="scene.json")
 
 	parser.add_argument("--prerotated_env", action="store_true") # Whether to use the prerotated position 
@@ -176,6 +177,24 @@ if __name__ == "__main__":
 			args.jerk_punish = 3
 			args.max_timesteps_epoch = 500
 			args.model_type = "linear"
+		elif args.seed == 18:
+			args.spill_punish = 0.5
+			args.hit_reward = 0.25
+			args.jerk_punish = 0.01
+			args.max_timesteps_epoch = 500
+			args.model_type = "convolution"
+		elif args.seed == 19:
+			args.spill_punish = 2
+			args.hit_reward = 1
+			args.jerk_punish = 0.5
+			args.max_timesteps_epoch = 500
+			args.model_type = "convolution"
+		elif args.seed == 20:
+			args.spill_punish = 25
+			args.hit_reward = 10
+			args.jerk_punish = 0
+			args.max_timesteps_epoch = 500
+			args.model_type = "convolution"
 
 	file_name = f"{args.policy}_WaterPouring_{args.model_id}_{args.seed}"
 	print("---------------------------------------")
@@ -197,7 +216,8 @@ if __name__ == "__main__":
         "jerk_punish": args.jerk_punish,
         "particle_explosion_punish": args.explosion_punish,
         "max_timesteps": args.max_timesteps_epoch,
-        "scene_file": "scene_rotated.json" if args.prerotated_env else "scene.json"#args.scene_file
+        "scene_file": "scene_rotated.json" if args.prerotated_env else "scene.json",
+		"use_fill_limit": args.use_fill_limit
     }
 
 	more_env_kwargs = {
@@ -222,9 +242,9 @@ if __name__ == "__main__":
 		actor_class = LinearActor 
 		q_network_class = LinearQNetwork
 	elif args.model_type == "convolution":
-		from network_types import Convolution_Actor, ConvolutionQNetwork 
-		actor_class = Convolution_Actor 
-		q_network_class = ConvolutionQNetwork
+		from network_types import ActorConvolution_new, Q_networkConvolution_new 
+		actor_class = ActorConvolution_new 
+		q_network_class = Q_networkConvolution_new
 	
 	kwargs = {
 		"actor_class": actor_class,
@@ -302,6 +322,7 @@ if __name__ == "__main__":
 	with open(f'./results/infos/infos_{args.model_id}_{args.seed}.json', 'w') as file:
 		json.dump(infos,file)
 
+
 	for t in trange(int(args.max_timesteps)):
 		
 		episode_timesteps += 1
@@ -312,10 +333,10 @@ if __name__ == "__main__":
 		if t < args.start_timesteps:
 			action = env.action_space.sample()
 		else:
-			noise = np.random.normal(0, max_action * args.expl_noise, size=env.action_space.shape[0])
+			noise = np.random.normal(0, max_action * args.expl_noise, size=env.action_space.shape[0]) 
 			action = (
 				policy.select_action(state)
-				+ noise #np.random.normal(0, max_action * args.expl_noise, size=env.action_space.shape[0])
+				+ noise  #np.random.normal(0, max_action * args.expl_noise, size=env.action_space.shape[0])
 			).clip(-max_action, max_action)
 		# Perform action
 		next_state, reward, terminated, truncated, _ = env.step(action) 
