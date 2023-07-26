@@ -59,10 +59,10 @@ elif model_type == "convolution":
     actor_class = Convolution_Actor 
 
 env_kwargs = {
-        "spill_punish" : 0.1,
-        "hit_reward": 0.1,
-        "jerk_punish": 0.1,
-        "particle_explosion_punish": 0.1,
+        "spill_punish" : 20,
+        "hit_reward": 10,
+        "jerk_punish": 3,
+        "particle_explosion_punish": 0,
         "max_timesteps": 500,
         "scene_file": args.scene_file
     }
@@ -89,10 +89,19 @@ for k in range(500):
 
         state_jug = torch.FloatTensor(np.array([obs[0]]).reshape(1, -1)).to(device)
         state_particles = torch.FloatTensor(obs[1].reshape(1,*obs[1].shape)).to(device)
+        distance_jug = torch.FloatTensor(obs[2].reshape(1,*obs[2].shape)).to(device)
+        distance_cup = torch.FloatTensor(obs[3].reshape(1,*obs[3].shape)).to(device)
+        time = torch.FloatTensor(obs[4].reshape(1,*obs[4].shape)).to(device)
 
-        actor_action = actor(state_jug, state_particles)
+        actor_action = actor(state_jug, state_particles, distance_jug, distance_cup, time)
         action = np.array([a])
         loss = loss_function(actor_action, torch.FloatTensor(action).reshape(1, -1).to(device))
+
+        results = [loss.item()]
+        results = ';'.join([str(r) for r in results])
+        with open(f'./results/Pretrained_Actor_Loss.csv', 'a') as file:
+            file.write(results)
+            file.write('\n')
         loss.backward()
 
         # Adjust learning weights
