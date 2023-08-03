@@ -107,9 +107,9 @@ if __name__ == "__main__":
 		actor_class = LinearActor 
 		q_network_class = LinearQNetwork
 	elif args.model_type == "convolution":
-		from network_types import ActorYannik, Q_networkYannik 
-		actor_class = ActorYannik 
-		q_network_class = Q_networkYannik
+		from network_types import ActorConvolution_new2, Q_networkConvolution_new2 
+		actor_class = ActorConvolution_new2 
+		q_network_class = Q_networkConvolution_new2
 	
 	if args.read_infos:
 		kwargs['actor_class'] = actor_class
@@ -164,4 +164,5 @@ if __name__ == "__main__":
 		episode_reward += reward
 
 print(env.simulation.n_particles_cup)
+print(env.simulation.n_particles_spilled)
 print(episode_reward)

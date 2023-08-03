@@ -195,6 +195,18 @@ if __name__ == "__main__":
 			args.jerk_punish = 0
 			args.max_timesteps_epoch = 500
 			args.model_type = "convolution"
+		elif args.seed == 21:
+			args.spill_punish = 20
+			args.hit_reward = 5
+			args.jerk_punish = 5
+			args.max_timesteps_epoch = 500
+			args.model_type = "convolution"
+		elif args.seed == 22:
+			args.spill_punish = 2.5
+			args.hit_reward = 2
+			args.jerk_punish = 0
+			args.max_timesteps_epoch = 500
+			args.model_type = "convolution"
 
 	file_name = f"{args.policy}_WaterPouring_{args.model_id}_{args.seed}"
 	print("---------------------------------------")
@@ -242,9 +254,9 @@ if __name__ == "__main__":
 		actor_class = LinearActor 
 		q_network_class = LinearQNetwork
 	elif args.model_type == "convolution":
-		from network_types import ActorConvolution_new, Q_networkConvolution_new 
-		actor_class = ActorConvolution_new 
-		q_network_class = Q_networkConvolution_new
+		from network_types import ActorConvolution_new2, Q_networkConvolution_new2 
+		actor_class = ActorConvolution_new2 
+		q_network_class = Q_networkConvolution_new2
 	
 	kwargs = {
 		"actor_class": actor_class,
@@ -342,7 +354,6 @@ if __name__ == "__main__":
 		next_state, reward, terminated, truncated, _ = env.step(action) 
 		if terminated or truncated:
 			done = True
-			print(env.simulation.n_particles_pouring)
 			
 		done_bool = float(done) if episode_timesteps < env.max_timesteps else 0
 
@@ -383,6 +394,7 @@ if __name__ == "__main__":
 				file.write(results)
 				file.write('\n')
 			print('Particles in cup: ', env.simulation.n_particles_cup)
+			print('Particles spilled: ', env.simulation.n_particles_spilled)
 			# Reset environment
 			state, done = env.reset()[0], False
 			episode_reward = 0
