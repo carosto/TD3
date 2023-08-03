@@ -83,6 +83,8 @@ for k in range(100):
         rotation += step
         if np.isclose(rotation, start_rotation_jug, atol=1):
             break
+    while len(trajectory) < 500:
+        trajectory.append(0)
     trajectory = np.array(trajectory)
     np.save(f"{path}/random_trajectory_{k}.npy", trajectory)
     print(f"Trajectory saved to {path}/random_trajectory_{k}.npy")

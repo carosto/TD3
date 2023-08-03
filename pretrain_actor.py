@@ -8,7 +8,9 @@ import argparse
 import torch
 import torch.nn as nn
 
-from tqdm import tqdm
+import utils
+
+from tqdm import tqdm, trange
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -18,13 +20,15 @@ else:
 	print("No CUDA is available.")
         
 parser = argparse.ArgumentParser()
-parser.add_argument("--model_type", type=str, default="linear") # type of the model (linear or convolution)
+parser.add_argument("--model_type", type=str, default="convolution") # type of the model (linear or convolution)
 parser.add_argument("--scene_file", type=str, default="scene.json") # type of the model (linear or convolution)
 parser.add_argument("--lr", type=float, default=3e-4) # learning rate for policy optimizer
-parser.add_argument("--use_layer_normalization", action="store_true") # Whether to use layer normalization in the networks
+parser.add_argument("--use_layer_normalization", action="store_true", default=True) # Whether to use layer normalization in the networks
 parser.add_argument("--folder_name", type=str, default="pretrained_actor") # folder for saving the model
 parser.add_argument("--trajectories_folder", type=str, default="RandomTrajectories") # folder where the trajectories can be found
 
+parser.add_argument("--batch_size", type=int, default=256)
+parser.add_argument("--train_steps", type=int, default=200)
 
 parser.add_argument("--slurm_job_array", action="store_true")
 parser.add_argument("--slurm_job_id", type=int, default=-1)
@@ -55,21 +59,21 @@ if model_type == "linear":
     from network_types import LinearActor
     actor_class = LinearActor 
 elif model_type == "convolution":
-    from network_types import Convolution_Actor
-    actor_class = Convolution_Actor 
+    from network_types import ActorConvolution_new2
+    actor_class = ActorConvolution_new2 
 
 env_kwargs = {
-        "spill_punish" : 20,
-        "hit_reward": 10,
-        "jerk_punish": 3,
+        "spill_punish" : 5,
+        "hit_reward": 1,
+        "jerk_punish": 0.5,
         "particle_explosion_punish": 0,
         "max_timesteps": 500,
         "scene_file": args.scene_file
     }
 env = gym.make("WaterPouringEnvBase-v0", **env_kwargs)
-wrapped_env = XRotationWrapper(env)
+env = XRotationWrapper(env, prerotated=False)
 
-actor = actor_class(wrapped_env.observation_space, wrapped_env.action_space, layer_normalization=args.use_layer_normalization).to(device)
+actor = actor_class(env.observation_space, env.action_space, layer_normalization=args.use_layer_normalization).to(device)
 actor_optimizer = torch.optim.Adam(actor.parameters(), lr=args.lr)
 
 loss_function = nn.MSELoss()
@@ -77,46 +81,48 @@ loss_function = nn.MSELoss()
 folder = args.folder_name
 os.makedirs(folder, exist_ok=True)
 
-for k in range(500):
+replay_buffer = utils.ReplayBuffer(env.observation_space, env.action_space)
+
+# put steps of trajectory in replay buffer
+for k in trange(100):
     actions = np.load(f"{args.trajectories_folder}/random_trajectory_{k}.npy")
     
     print("Max steps: ", len(actions))
 
-    obs = wrapped_env.reset()[0]
+    state = env.reset()[0]
     sum_reward = 0
     for a in tqdm(actions):
-        actor_optimizer.zero_grad()
-
-        state_jug = torch.FloatTensor(np.array([obs[0]]).reshape(1, -1)).to(device)
-        state_particles = torch.FloatTensor(obs[1].reshape(1,*obs[1].shape)).to(device)
-        distance_jug = torch.FloatTensor(obs[2].reshape(1,*obs[2].shape)).to(device)
-        distance_cup = torch.FloatTensor(obs[3].reshape(1,*obs[3].shape)).to(device)
-        time = torch.FloatTensor(obs[4].reshape(1,*obs[4].shape)).to(device)
-
-        actor_action = actor(state_jug, state_particles, distance_jug, distance_cup, time)
         action = np.array([a])
-        loss = loss_function(actor_action, torch.FloatTensor(action).reshape(1, -1).to(device))
+        next_state, reward, terminated, truncated, _ = env.step(action)
 
-        results = [loss.item()]
-        results = ';'.join([str(r) for r in results])
-        with open(f'./results/Pretrained_Actor_Loss.csv', 'a') as file:
-            file.write(results)
-            file.write('\n')
-        loss.backward()
+        done_bool = terminated or truncated
+        replay_buffer.add(state, action, next_state, reward, done_bool)
 
-        # Adjust learning weights
-        actor_optimizer.step()
-
-        obs, reward, terminated, truncated, info = wrapped_env.step(action)
-
+        state = next_state
         sum_reward += reward
-        if terminated or truncated:
+        if done_bool:
             print('Done early')
             break
+env.close()
+
+for i in trange(args.train_steps):
+    actor_optimizer.zero_grad()
+
+    state_jug, state_particles, distance_jug, distance_cup, time, action, next_state_jug, next_state_particles_positions, next_state_distance_jug, next_state_distance_cup, next_state_time, reward, not_done = replay_buffer.sample(args.batch_size)
+
+    actor_action = actor(state_jug, state_particles, distance_jug, distance_cup, time)
+
+    loss = loss_function(actor_action, action)
+
+    results = [loss.item()]
+    results = ';'.join([str(r) for r in results])
+    with open(f'./results/Pretrained_Actor_Loss.csv', 'a') as file:
+        file.write(results)
+        file.write('\n')
+    loss.backward()
+
+    # Adjust learning weights
+    actor_optimizer.step()
+
     torch.save(actor.state_dict(), os.path.join(folder, f"actor_{model_type}"))
     torch.save(actor_optimizer.state_dict(), os.path.join(folder, f"actor_optimizer_{model_type}"))
-    print(k, ": ", sum_reward)
-    print('Cup: ', wrapped_env.simulation.n_particles_cup)
-    print('Jug: ', wrapped_env.simulation.n_particles_jug)
-    print('Spilled: ', wrapped_env.simulation.n_particles_spilled)
-wrapped_env.close()

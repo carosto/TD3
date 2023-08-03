@@ -18,11 +18,11 @@ else:
 	print("No CUDA is available.")
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--model_type", type=str, default="linear") # type of the model (linear or convolution)
-parser.add_argument("--scene_file", type=str, default="scene.json") # type of the model (linear or convolution)
-parser.add_argument("--use_layer_normalization", action="store_true") # Whether to use layer normalization in the networks
+parser.add_argument("--model_type", type=str, default="convolution") # type of the model (linear or convolution)
+parser.add_argument("--scene_file", type=str, default="scene_test.json") # type of the model (linear or convolution)
+parser.add_argument("--use_layer_normalization", action="store_true", default=True) # Whether to use layer normalization in the networks
 parser.add_argument("--folder_name", type=str, default="pretrained_actor") # folder for saving the model
-parser.add_argument("--output_directory", type=str, default="SimulationOutput")
+parser.add_argument("--output_directory", type=str, default="Output_PretrainedActor")
 
 
 parser.add_argument("--slurm_job_array", action="store_true")
@@ -57,43 +57,46 @@ if model_type == "linear":
     from network_types import LinearActor
     actor_class = LinearActor 
 elif model_type == "convolution":
-    from network_types import Convolution_Actor
-    actor_class = Convolution_Actor 
+    from network_types import ActorConvolution_new2
+    actor_class = ActorConvolution_new2 
 
 env_kwargs = {
-        "spill_punish" : 0.1,
-        "hit_reward": 0.1,
-        "jerk_punish": 0.1,
-        "particle_explosion_punish": 0.1,
+        "spill_punish" : 5,
+        "hit_reward": 1,
+        "jerk_punish": 0.5,
+        "particle_explosion_punish": 0,
         "max_timesteps": 500,
         "scene_file": args.scene_file, 
         "output_directory": args.output_directory
     }
 env = gym.make("WaterPouringEnvBase-v0", **env_kwargs)
-wrapped_env = XRotationWrapper(env)
+env = XRotationWrapper(env, prerotated=False)
 
-actor = actor_class(wrapped_env.observation_space, wrapped_env.action_space, layer_normalization=args.use_layer_normalization).to(device)
+actor = actor_class(env.observation_space, env.action_space, layer_normalization=args.use_layer_normalization).to(device)
 
 folder = args.folder_name
 
 actor.load_state_dict(torch.load(os.path.join(folder, f"actor_{model_type}"), map_location=device))
 
-obs = wrapped_env.reset()[0]
+state = env.reset()[0]
 sum_reward = 0
 while True:
-    state_jug = torch.FloatTensor(np.array([obs[0]]).reshape(1, -1)).to(device)
-    state_particles = torch.FloatTensor(obs[1].reshape(1,*obs[1].shape)).to(device)
+    state_jug = torch.FloatTensor(np.array([state[0]]).reshape(1, -1)).to(device)
+    state_particles = torch.FloatTensor(state[1].reshape(1,*state[1].shape)).to(device)
+    distance_jug = torch.FloatTensor(state[2].reshape(1,*state[2].shape)).to(device)
+    distance_cup = torch.FloatTensor(state[3].reshape(1,*state[3].shape)).to(device)
+    time = torch.FloatTensor(state[4].reshape(1,*state[4].shape)).to(device)
 
-    action = actor(state_jug, state_particles).cpu().data.numpy().flatten()
+    action = actor(state_jug, state_particles, distance_jug, distance_cup, time).cpu().data.numpy().flatten()
 
-    obs, reward, terminated, truncated, info = wrapped_env.step(action)
+    state, reward, terminated, truncated, info = env.step(action)
 
     sum_reward += reward
     if terminated or truncated:
         print('Done')
         break
 print("Sum reward: ", sum_reward)
-print('Cup: ', wrapped_env.simulation.n_particles_cup)
-print('Jug: ', wrapped_env.simulation.n_particles_jug)
-print('Spilled: ', wrapped_env.simulation.n_particles_spilled)
-wrapped_env.close()
+print('Cup: ', env.simulation.n_particles_cup)
+print('Jug: ', env.simulation.n_particles_jug)
+print('Spilled: ', env.simulation.n_particles_spilled)
+env.close()
