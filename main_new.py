@@ -388,7 +388,7 @@ if __name__ == "__main__":
 			# +1 to account for 0 indexing. +0 on ep_timesteps since it will increment +1 even if done=True
 			print(f"Total T: {t+1} Episode Num: {episode_num+1} Episode T: {episode_timesteps} Reward: {episode_reward:.3f}")
 
-			results = [t+1, episode_num+1, episode_timesteps, episode_reward]
+			results = [t+1, episode_num+1, episode_timesteps, episode_reward, env.simulation.n_particles_cup, env.simulation.n_particles_spilled]
 			results = ';'.join([str(r) for r in results])
 			with open(f'./results/{args.policy}_WaterPouring_{args.model_id}_{args.seed}.csv', 'a') as file:
 				file.write(results)
