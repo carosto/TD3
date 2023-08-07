@@ -65,9 +65,12 @@ if __name__ == "__main__":
 	parser.add_argument("--use_layer_normalization", action="store_true") # Whether to use layer normalization in the networks
 
 	# parameters for imitation learning
-	parser.add_argument("--imitation_learning", action="store_true") # toggle on if imitation learning is used
+	parser.add_argument("--behavioural_cloning", action="store_true") # toggle on if imitation learning is used
 	parser.add_argument("--actor_folder", default=None, type=str) # folder where the pretrained actor is located
 	parser.add_argument("--actor_name", default=None, type=str) # name appended to the actor (besides actor/actor_optimizer)
+
+	parser.add_argument("--deep_mimic", action="store_true") # toggle on if deep mimic is used
+	parser.add_argument("--trajectory_path", default=None, type=str) # folder where the pretrained actor is located
 
 	parser.add_argument("--model_type", type=str)
 	parser.add_argument("--slurm_job_array", action="store_true")
@@ -239,6 +242,17 @@ if __name__ == "__main__":
 	env = gym.make(args.env, **env_kwargs)
 	env = XRotationWrapper(env, prerotated=more_env_kwargs["prerotated"])
 
+	if args.deep_mimic:
+		from water_pouring.envs.pouring_env_imitation_reward_wrapper import ImitationRewardWrapper
+		deep_mimic_kwargs = {
+			"trajectory_path" : args.trajectory_path,
+			"weight_task_objective" : 0.5,
+			"weight_imitation" : 0.5,
+			"weight_position" : 0,
+			"weight_rotation" : 1
+		}
+		env = ImitationRewardWrapper(env, **deep_mimic_kwargs)
+
 	print(env.action_space)
 
 	# Set seeds
@@ -278,7 +292,7 @@ if __name__ == "__main__":
 	print(policy.actor)
 	print(policy.critic)
 
-	if args.imitation_learning:
+	if args.behavioural_cloning:
 		policy.load_actor(args.actor_folder, args.actor_name)
 		print("Pretrained actor loaded")
 
@@ -330,6 +344,9 @@ if __name__ == "__main__":
 		'policy_kwargs' : mod_kwargs,
 		'training_params' : train_params
 			}
+	
+	if args.deep_mimic:
+		infos['deep_mimic_kwargs'] = deep_mimic_kwargs
 
 	with open(f'./results/infos/infos_{args.model_id}_{args.seed}.json', 'w') as file:
 		json.dump(infos,file)
