@@ -75,6 +75,12 @@ if __name__ == "__main__":
 			kwargs = data['policy_kwargs']
 			more_env_kwargs = data['more_env_kwargs']
 
+			if 'deep_mimic_kwargs' in data.keys():
+				deep_mimic = True
+				deep_mimic_kwargs = data['deep_mimic_kwargs']
+			else:
+				deep_mimic = False
+
 			env_kwargs['scene_file'] = "scene_test_rotated.json" if more_env_kwargs['prerotated'] else "scene_test.json"
 			env_kwargs['output_directory'] = args.output_directory
 
@@ -91,6 +97,10 @@ if __name__ == "__main__":
 
 	env = gym.make(args.env, **env_kwargs)
 	env = XRotationWrapper(env, prerotated=more_env_kwargs['prerotated'])
+
+	if deep_mimic:
+		from water_pouring.envs.pouring_env_imitation_reward_wrapper import ImitationRewardWrapper
+		env = ImitationRewardWrapper(env, **deep_mimic_kwargs)
 
 	print(env.action_space)
 
