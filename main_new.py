@@ -79,6 +79,7 @@ if __name__ == "__main__":
 	parser.add_argument("--hit_reward",type=float, default=0.5)
 	parser.add_argument("--spill_punish",type=float, default=0.5)
 	parser.add_argument("--jerk_punish",type=float, default=0)
+	parser.add_argument("--action_punish",type=float, default=0)
 	parser.add_argument("--explosion_punish",type=float, default=0)
 	parser.add_argument("--max_timesteps_epoch",type=int, default=500)
 	parser.add_argument("--use_fill_limit", action="store_true")
@@ -208,6 +209,7 @@ if __name__ == "__main__":
 			args.spill_punish = 2.5
 			args.hit_reward = 2
 			args.jerk_punish = 0
+			args.action_punish = 0
 			args.max_timesteps_epoch = 500
 			args.model_type = "convolution"
 
@@ -229,6 +231,7 @@ if __name__ == "__main__":
         "spill_punish" : args.spill_punish,
         "hit_reward": args.hit_reward,
         "jerk_punish": args.jerk_punish,
+		"action_punish" : args.action_punish,
         "particle_explosion_punish": args.explosion_punish,
         "max_timesteps": args.max_timesteps_epoch,
         "scene_file": "scene_rotated.json" if args.prerotated_env else "scene.json",
