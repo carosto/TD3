@@ -55,20 +55,18 @@ class TD3(object):
 
     def select_action(self, state):
         state_jug = torch.FloatTensor(np.array([state[0]]).reshape(1, -1)).to(device)
-        state_particles_position = torch.FloatTensor(state[1].reshape(1,*state[1].shape)).to(device)
-        #state_particles_velocities = torch.FloatTensor(state[2].reshape(1,*state[2].shape)).to(device)
+        state_particles = torch.FloatTensor(state[1].reshape(1,*state[1].shape)).to(device)
         distance_jug = torch.FloatTensor(state[2].reshape(1,*state[2].shape)).to(device)
         distance_cup = torch.FloatTensor(state[3].reshape(1,*state[3].shape)).to(device)
-        time = torch.FloatTensor(state[4].reshape(1,*state[4].shape)).to(device)
-        # TODO check!
-        return self.actor(state_jug, state_particles_position, distance_jug, distance_cup, time).cpu().data.numpy().flatten()
+        other_features = torch.FloatTensor(state[4].reshape(1,*state[4].shape)).to(device)
+        return self.actor(state_jug, state_particles, distance_jug, distance_cup, other_features).cpu().data.numpy().flatten()
 
 
     def train(self, replay_buffer, batch_size=256):
         self.total_it += 1
 
         # Sample replay buffer 
-        state_jug, state_particles_position, distance_jug, distance_cup, time, action, next_state_jug, next_state_particles_positions, next_state_distance_jug, next_state_distance_cup, next_state_time, reward, not_done = replay_buffer.sample(batch_size)
+        state_jug, state_particles, distance_jug, distance_cup, other_features, action, next_state_jug, next_state_particles, next_state_distance_jug, next_state_distance_cup, next_state_other_features, reward, not_done = replay_buffer.sample(batch_size)
 
         with torch.no_grad():
             # Select action according to policy and add clipped noise
@@ -77,16 +75,16 @@ class TD3(object):
             ).clamp(-self.noise_clip, self.noise_clip)
             
             next_action = (
-                self.actor_target(next_state_jug, next_state_particles_positions, next_state_distance_jug, next_state_distance_cup, next_state_time) + noise
+                self.actor_target(next_state_jug, next_state_particles, next_state_distance_jug, next_state_distance_cup, next_state_other_features) + noise
             ).clamp(-self.max_action, self.max_action)
 
             # Compute the target Q value
-            target_Q1, target_Q2 = self.critic_target(next_state_jug, next_state_particles_positions, next_state_distance_jug, next_state_distance_cup, next_state_time, next_action)
+            target_Q1, target_Q2 = self.critic_target(next_state_jug, next_state_particles, next_state_distance_jug, next_state_distance_cup, next_state_other_features, next_action)
             target_Q = torch.min(target_Q1, target_Q2)
             target_Q = reward + not_done * self.discount * target_Q # Bellman Equation
             
         # Get current Q estimates
-        current_Q1, current_Q2 = self.critic(state_jug, state_particles_position, distance_jug, distance_cup, time, action)
+        current_Q1, current_Q2 = self.critic(state_jug, state_particles, distance_jug, distance_cup, other_features, action)
 
         # Compute critic loss
         critic_loss = F.mse_loss(current_Q1, target_Q) + F.mse_loss(current_Q2, target_Q) # should be minimized
@@ -100,7 +98,7 @@ class TD3(object):
         if self.total_it % self.policy_freq == 0:
 
             # Compute actor loss
-            actor_loss = -self.critic.Q1(state_jug, state_particles_position, distance_jug, distance_cup, time, self.actor(state_jug, state_particles_position, distance_jug, distance_cup, time)).mean()
+            actor_loss = -self.critic.Q1(state_jug, state_particles, distance_jug, distance_cup, other_features, self.actor(state_jug, state_particles, distance_jug, distance_cup, other_features)).mean()
             
             # Optimize the actor 
             self.actor_optimizer.zero_grad()

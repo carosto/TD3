@@ -7,12 +7,6 @@ import torch.nn.functional as F
 import os
 import sys
 
-"""other_folder_path = os.path.join(os.path.dirname(__file__), 'SmoothParticleNets')
-sys.path.append(other_folder_path)
-
-from convsp import ConvSP  
-from convsdf import ConvSDF"""
-
 class LinearActor(nn.Module):
 	def __init__(self, obs_space, action_space, layer_normalization=False):
 		super(LinearActor, self).__init__()
@@ -176,12 +170,12 @@ class Critic(nn.Module):
 		self.q1 = q_network_type(obs_space, action_space, layer_normalization)
 		self.q2 = q_network_type(obs_space, action_space, layer_normalization)
 
-	def forward(self, state_jug, state_particles, distance_jug, distance_cup, time, action):
-		return self.q1(state_jug, state_particles, distance_jug, distance_cup, time, action), self.q2(state_jug, state_particles, distance_jug, distance_cup, time, action)
+	def forward(self, state_jug, state_particles, distance_jug, distance_cup, other_features, action):
+		return self.q1(state_jug, state_particles, distance_jug, distance_cup, other_features, action), self.q2(state_jug, state_particles, distance_jug, distance_cup, other_features, action)
 
 
-	def Q1(self, state_jug, state_particles, distance_jug, distance_cup, time, action):
-		return self.q1(state_jug, state_particles, distance_jug, distance_cup, time, action)
+	def Q1(self, state_jug, state_particles, distance_jug, distance_cup, other_features, action):
+		return self.q1(state_jug, state_particles, distance_jug, distance_cup, other_features, action)
 
 class ActorConvolution_new(nn.Module):
     def __init__(self,obs_space,action_space,layer_normalization=False):
@@ -358,114 +352,6 @@ class Q_networkConvolution_new(nn.Module):
                     q = self.lnorms[i](q)
         return q
 
-"""class Critic(nn.Module):
-	def __init__(self, obs_space, action_space, q_network_type, layer_normalization=False):
-		super(Critic, self).__init__()
-
-		self.q1 = q_network_type(obs_space, action_space, layer_normalization)
-		self.q2 = q_network_type(obs_space, action_space, layer_normalization)
-
-	def forward(self, state_jug, state_particles_position, state_particles_velocities, action):
-		return self.q1(state_jug, state_particles_position, state_particles_velocities, action), self.q2(state_jug, state_particles_position, state_particles_velocities, action)
-
-
-	def Q1(self, state_jug, state_particles_position, state_particles_velocities, action):
-		return self.q1(state_jug, state_particles_position, state_particles_velocities, action)"""
-
-class ActorYannik(nn.Module):
-    def __init__(self,obs_space,action_space,layer_normalization=False):
-        # State expected to be tuple of 0: Box features, 1: convolutional part
-        super(ActorYannik, self).__init__()
-        
-        #self.architecture = (256,256)
-        self.architecture = (500,400,300)
-
-        self.num_features = 128
-
-        self.conv1 = nn.Conv2d(1,self.num_features*2,kernel_size=(1,obs_space[1].shape[1]),stride=1)
-        self.conv2 = nn.Conv1d(self.num_features*2,self.num_features,kernel_size=1,stride=1)
-        
-        self.avg_pool = nn.AvgPool2d(kernel_size = (1,obs_space[1].shape[0]))
-
-        self.linears = nn.ModuleList()
-        for i,dim in enumerate(self.architecture):
-            if i==0:
-                self.linears.append(nn.Linear(self.num_features+obs_space[0].shape[0],dim))
-            else:
-                self.linears.append(nn.Linear(self.architecture[i-1],dim))
-        self.linears.append(nn.Linear(self.architecture[-1],action_space.shape[0]))
-
-        self.layer_normalization = layer_normalization
-        if self.layer_normalization:
-            self.lnorm1 = nn.LayerNorm(self.num_features+obs_space[0].shape[0])
-            self.lnorms = [nn.LayerNorm(dim) for dim in self.architecture]
-            self.lnorms = nn.ModuleList(self.lnorms)
-        
-    def forward(self, state_features, state_particles):
-        a = torch.unsqueeze(state_particles,1)
-        a = F.relu(self.conv1(a))
-        a = torch.squeeze(a,dim=3) # removes last dimension (is just 1)
-        a = F.relu(self.conv2(a))
-        a = F.relu(self.avg_pool(a))
-        a = torch.squeeze(a,dim=2)
-        a = torch.cat([a,state_features],1)
-        if self.layer_normalization:
-            a = self.lnorm1(a)
-        for i in range(len(self.linears)):
-            a = self.linears[i](a)
-            if i!=len(self.linears)-1:
-                a = F.relu(a)
-                if self.layer_normalization:
-                    a = self.lnorms[i](a)
-        a = torch.tanh(a)
-        return a
-
-class Q_networkYannik(nn.Module):
-    def __init__(self, obs_space, action_space, layer_normalization=False):
-        super(Q_networkYannik, self).__init__()
-
-        #self.architecture = (256,256)
-        self.architecture = (500,400,300)
-
-        self.num_features = 128
-
-        self.conv1 = nn.Conv2d(1,self.num_features*2,kernel_size=(1,obs_space[1].shape[1]),stride=1)
-        self.conv2 = nn.Conv1d(self.num_features*2,self.num_features,kernel_size=1,stride=1)
-
-        self.avg_pool = nn.AvgPool2d(kernel_size = (1,obs_space[1].shape[0]))
-        
-        self.linears = nn.ModuleList()
-        for i,dim in enumerate(self.architecture):
-            if i==0:
-                self.linears.append(nn.Linear(self.num_features+obs_space[0].shape[0]+action_space.shape[0],dim))
-            else:
-                self.linears.append(nn.Linear(self.architecture[i-1],dim))
-        self.linears.append(nn.Linear(self.architecture[-1],action_space.shape[0]))
-
-        self.layer_normalization = layer_normalization
-        if self.layer_normalization:
-            self.lnorm1 = nn.LayerNorm(self.num_features+obs_space[0].shape[0]+action_space.shape[0])
-            self.lnorms = [nn.LayerNorm(dim) for dim in self.architecture]
-            self.lnorms = nn.ModuleList(self.lnorms)
-
-    def forward(self, state_features, state_particles, action):
-        q = torch.unsqueeze(state_particles,1)
-        q = F.relu(self.conv1(q))
-        q = torch.squeeze(q,dim=3)
-        q = F.relu(self.conv2(q))
-        q = F.relu(self.avg_pool(q))
-        q = torch.squeeze(q,dim=2)
-        q = torch.cat([q,state_features,action],1)
-        if self.layer_normalization:
-            q = self.lnorm1(q)
-        for i in range(len(self.linears)):
-            q = self.linears[i](q)
-            if i!=len(self.linears)-1:
-                q = F.relu(q)
-                if self.layer_normalization:
-                    q = self.lnorms[i](q)
-        return q
-
 class ActorConvolution_new2(nn.Module):
     def __init__(self,obs_space,action_space,layer_normalization=False):
         # State expected to be tuple of 0: Box features, 1: convolutional part
@@ -503,7 +389,7 @@ class ActorConvolution_new2(nn.Module):
         self.linears = nn.ModuleList()
         for i,dim in enumerate(self.architecture):
             if i==0:
-                self.linears.append(nn.Linear(n_results+obs_space[0].shape[0]+200+1,dim)) 
+                self.linears.append(nn.Linear(n_results+obs_space[0].shape[0]+200+obs_space[4].shape[0],dim)) 
             else:
                 self.linears.append(nn.Linear(self.architecture[i-1],dim))
         self.linears.append(nn.Linear(self.architecture[-1],action_space.shape[0]))
@@ -511,11 +397,11 @@ class ActorConvolution_new2(nn.Module):
         # layer normalization
         self.layer_normalization = layer_normalization
         if self.layer_normalization:
-            self.lnorm1 = nn.LayerNorm(n_results+obs_space[0].shape[0]+200+1) 
+            self.lnorm1 = nn.LayerNorm(n_results+obs_space[0].shape[0]+200+obs_space[4].shape[0]) 
             self.lnorms = [nn.LayerNorm(dim) for dim in self.architecture]
             self.lnorms = nn.ModuleList(self.lnorms)
         
-    def forward(self, state_features, state_particles, distance_jug, distance_cup, time):
+    def forward(self, state_features, state_particles, distance_jug, distance_cup, other_features):
         # processing particle data
         a = torch.unsqueeze(state_particles,1)
         a = a.permute(0,3,2,1)
@@ -533,7 +419,7 @@ class ActorConvolution_new2(nn.Module):
         dist_cup = self.linear_distcup2(a)
         
         # combine all
-        a = torch.cat([particle_features ,state_features, time, dist_jug, dist_cup],1)
+        a = torch.cat([particle_features ,state_features, other_features, dist_jug, dist_cup],1)
         if self.layer_normalization:
             a = self.lnorm1(a)
         for i in range(len(self.linears)):
@@ -580,18 +466,18 @@ class Q_networkConvolution_new2(nn.Module):
         self.linears = nn.ModuleList()
         for i,dim in enumerate(self.architecture):
             if i==0:
-                self.linears.append(nn.Linear(n_results+obs_space[0].shape[0]+action_space.shape[0]+200+1,dim))
+                self.linears.append(nn.Linear(n_results+obs_space[0].shape[0]+action_space.shape[0]+200+obs_space[4].shape[0],dim))
             else:
                 self.linears.append(nn.Linear(self.architecture[i-1],dim))
         self.linears.append(nn.Linear(self.architecture[-1],action_space.shape[0]))
 
         self.layer_normalization = layer_normalization
         if self.layer_normalization:
-            self.lnorm1 = nn.LayerNorm(n_results+obs_space[0].shape[0]+action_space.shape[0]+200+1)
+            self.lnorm1 = nn.LayerNorm(n_results+obs_space[0].shape[0]+action_space.shape[0]+200+obs_space[4].shape[0])
             self.lnorms = [nn.LayerNorm(dim) for dim in self.architecture]
             self.lnorms = nn.ModuleList(self.lnorms)
 
-    def forward(self, state_features, state_particles, distance_jug, distance_cup, time, action):
+    def forward(self, state_features, state_particles, distance_jug, distance_cup, other_features, action):
         # processing particle data
         q = torch.unsqueeze(state_particles,1)
         q = q.permute(0,3,2,1)
@@ -609,7 +495,7 @@ class Q_networkConvolution_new2(nn.Module):
         q = F.relu(self.linear_distcup1(distance_cup))
         dist_cup = self.linear_distcup2(q)
 
-        q = torch.cat([particle_features ,state_features,time, dist_jug, dist_cup, action],1)
+        q = torch.cat([particle_features ,state_features,other_features, dist_jug, dist_cup, action],1)
         if self.layer_normalization:
             q = self.lnorm1(q)
         for i in range(len(self.linears)):
