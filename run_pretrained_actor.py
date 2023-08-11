@@ -24,6 +24,9 @@ parser.add_argument("--use_layer_normalization", action="store_true", default=Tr
 parser.add_argument("--folder_name", type=str, default="pretrained_actor") # folder for saving the model
 parser.add_argument("--output_directory", type=str, default="Output_PretrainedActor")
 
+parser.add_argument("--use_fill_limit", action="store_true", default=False)
+parser.add_argument("--fill_limit", type=int, default=175)
+
 
 parser.add_argument("--slurm_job_array", action="store_true")
 parser.add_argument("--slurm_job_id", type=int, default=-1)
@@ -64,10 +67,12 @@ env_kwargs = {
         "spill_punish" : 5,
         "hit_reward": 1,
         "jerk_punish": 0.5,
+        "action_punish": 0,
         "particle_explosion_punish": 0,
         "max_timesteps": 500,
         "scene_file": args.scene_file, 
-        "output_directory": args.output_directory
+        "output_directory": args.output_directory,
+        "use_fill_limit": args.use_fill_limit
     }
 env = gym.make("WaterPouringEnvBase-v0", **env_kwargs)
 env = XRotationWrapper(env, prerotated=False)
@@ -78,7 +83,7 @@ folder = args.folder_name
 
 actor.load_state_dict(torch.load(os.path.join(folder, f"actor_{model_type}"), map_location=device))
 
-state = env.reset()[0]
+state = env.reset(options={'fixed fill goal': args.fill_limit})[0]
 sum_reward = 0
 while True:
     state_jug = torch.FloatTensor(np.array([state[0]]).reshape(1, -1)).to(device)
