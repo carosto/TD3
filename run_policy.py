@@ -49,6 +49,8 @@ if __name__ == "__main__":
 	parser.add_argument("--output_directory", type=str, default="SimulationOutput")
 
 	parser.add_argument("--prerotated_env", action="store_true") # Whether to use the prerotated position 
+
+	parser.add_argument("--fill_limit", type=int, default=-1)
 	args = parser.parse_args()
 
 	
@@ -151,7 +153,8 @@ if __name__ == "__main__":
 		policy_file = file_name if args.load_model == "default" else args.load_model
 		policy.load(f"./models/{policy_file}")
 
-	state, done = env.reset()[0], False
+	options_reset = {'fixed fill goal': args.fill_limit} if args.fill_limit != -1 else None
+	state, done = env.reset(options=options_reset)[0], False
 	episode_reward = 0
 	episode_timesteps = 0
 	episode_num = 0
