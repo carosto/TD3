@@ -43,11 +43,11 @@ class TD3(object):
         self.critic_target = copy.deepcopy(self.critic)
         self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=lr)
 
-        self.max_action = max_action
+        self.max_action = torch.tensor(max_action, device=device)
         self.discount = discount
         self.tau = tau
-        self.policy_noise = policy_noise
-        self.noise_clip = noise_clip
+        self.policy_noise = torch.tensor(policy_noise, device=device)
+        self.noise_clip = torch.tensor(noise_clip, device=device)
         self.policy_freq = policy_freq
 
         self.total_it = 0

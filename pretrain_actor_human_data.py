@@ -97,7 +97,6 @@ for k in trange(91):
             print('Done early')
             break
     env.close()
-    break
 
 for i in trange(args.train_steps):
     actor_optimizer.zero_grad()
