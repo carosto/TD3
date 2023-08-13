@@ -96,6 +96,7 @@ for k in trange(91):
         if done_bool:
             print('Done early')
             break
+    env.reset(options={'cleanup': True})
     env.close()
 
 for i in trange(args.train_steps):
@@ -109,7 +110,7 @@ for i in trange(args.train_steps):
 
     results = [loss.item()]
     results = ';'.join([str(r) for r in results])
-    with open(f'./results/Pretrained_Actor_Loss.csv', 'a') as file:
+    with open(f'./results/Pretrained_Actor_Human_Loss.csv', 'a') as file:
         file.write(results)
         file.write('\n')
     loss.backward()
