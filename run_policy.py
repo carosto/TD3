@@ -19,7 +19,7 @@ import json
 if __name__ == "__main__":
 	
 	parser = argparse.ArgumentParser()
-	parser.add_argument("--model_id", type=int) # id of the model
+	parser.add_argument("--model_id", type=int, default=-1) # id of the model
 	parser.add_argument("--policy", default="TD3")                  # Policy name (TD3, DDPG or OurDDPG)
 	parser.add_argument("--env", default="water_pouring:WaterPouringEnvBase-v0")          # OpenAI gym environment name
 	parser.add_argument("--seed", default=0, type=int)              # Sets Gym, PyTorch and Numpy seeds
@@ -32,8 +32,8 @@ if __name__ == "__main__":
 	parser.add_argument("--policy_freq", default=2, type=int)       # Frequency of delayed policy updates
 	parser.add_argument("--load_model", default="default")                 # Model load file name, "" doesn't load, "default" uses file_name
 
-	parser.add_argument("--model_type", type=str, default="linear")
-	parser.add_argument("--use_layer_normalization", action="store_true")
+	parser.add_argument("--model_type", type=str, default="convolution")
+	parser.add_argument("--use_layer_normalization", action="store_true", default=True)
 
 	parser.add_argument("--read_infos", action="store_true") # whether to read the models parameters from the info file or not
 	parser.add_argument("--automatic_output_dir", action="store_true") # if set, the output directory is set automatically, based on the seed
@@ -47,10 +47,14 @@ if __name__ == "__main__":
 	parser.add_argument("--max_timesteps_epoch",type=int, default=500)
 	parser.add_argument("--scene_file",type=str, default="scene_test.json")
 	parser.add_argument("--output_directory", type=str, default="SimulationOutput")
+	parser.add_argument("--deep_mimic", action="store_true")
 
 	parser.add_argument("--prerotated_env", action="store_true") # Whether to use the prerotated position 
 
 	parser.add_argument("--fill_limit", type=int, default=-1)
+
+	parser.add_argument("--just_actor", action="store_true")
+	parser.add_argument("--actor_folder", type=str, default="")
 	args = parser.parse_args()
 
 	
@@ -78,10 +82,10 @@ if __name__ == "__main__":
 			more_env_kwargs = data['more_env_kwargs']
 
 			if 'deep_mimic_kwargs' in data.keys():
-				deep_mimic = True
+				args.deep_mimic = True
 				deep_mimic_kwargs = data['deep_mimic_kwargs']
 			else:
-				deep_mimic = False
+				args.deep_mimic = False
 
 			env_kwargs['scene_file'] = "scene_test_rotated.json" if more_env_kwargs['prerotated'] else "scene_test.json"
 			env_kwargs['output_directory'] = args.output_directory
@@ -100,7 +104,7 @@ if __name__ == "__main__":
 	env = gym.make(args.env, **env_kwargs)
 	env = XRotationWrapper(env, prerotated=more_env_kwargs['prerotated'])
 
-	if deep_mimic:
+	if args.deep_mimic:
 		from water_pouring.envs.pouring_env_imitation_reward_wrapper import ImitationRewardWrapper
 		env = ImitationRewardWrapper(env, **deep_mimic_kwargs)
 
@@ -150,8 +154,14 @@ if __name__ == "__main__":
 
 
 	if args.load_model != "":
-		policy_file = file_name if args.load_model == "default" else args.load_model
-		policy.load(f"./models/{policy_file}")
+		if args.just_actor:
+			file_name = f"Actor_{args.actor_folder}_{args.model_type}"
+			policy_folder = args.actor_folder
+			policy.load_actor(f"./{policy_folder}/", args.model_type)
+			print('Loaded just actor')
+		else:
+			policy_file = file_name if args.load_model == "default" else args.load_model
+			policy.load(f"./models/{policy_file}")
 
 	options_reset = {'fixed fill goal': args.fill_limit} if args.fill_limit != -1 else None
 	state, done = env.reset(options=options_reset)[0], False
