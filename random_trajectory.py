@@ -51,8 +51,8 @@ for k in range(100):
 
     start_rotation_jug = 90  # R.from_euler('XYZ', [90, 180, 0], degrees=True).as_euler('XYZ', degrees=True)
 
-    pouring_x = random.uniform(150, 170)
-    wait_pouring = random.randint(15, 25)
+    pouring_x = random.uniform(165, 170)
+    wait_pouring = random.randint(25, 30)
     trajectory = []
     rotation = start_rotation_jug
 

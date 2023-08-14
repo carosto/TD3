@@ -24,51 +24,29 @@ parser.add_argument("--model_type", type=str, default="convolution") # type of t
 parser.add_argument("--scene_file", type=str, default="scene.json") # type of the model (linear or convolution)
 parser.add_argument("--lr", type=float, default=3e-4) # learning rate for policy optimizer
 parser.add_argument("--use_layer_normalization", action="store_true", default=True) # Whether to use layer normalization in the networks
-parser.add_argument("--folder_name", type=str, default="pretrained_actor") # folder for saving the model
+parser.add_argument("--folder_name", type=str, default="pretrained_actor_no_fill_goal") # folder for saving the model
 parser.add_argument("--trajectories_folder", type=str, default="RandomTrajectories") # folder where the trajectories can be found
 
 parser.add_argument("--batch_size", type=int, default=256)
-parser.add_argument("--train_steps", type=int, default=200)
+parser.add_argument("--train_steps", type=int, default=1000)
 
-parser.add_argument("--slurm_job_array", action="store_true")
-parser.add_argument("--slurm_job_id", type=int, default=-1)
 args = parser.parse_args()
-
-if args.slurm_job_array:
-    if args.slurm_job_id == 1:
-        args.model_type = "linear"
-        args.folder_name = "pretrained_actor_prerotated_layer_norm"
-        args.use_layer_normalization = True
-    elif args.slurm_job_id == 2:
-        args.model_type = "convolution"
-        args.folder_name = "pretrained_actor_prerotated_layer_norm"
-        args.use_layer_normalization = True
-    elif args.slurm_job_id == 3:
-        args.model_type = "linear"
-        args.folder_name = "pretrained_actor_prerotated_no_norm"
-        args.use_layer_normalization = False
-    elif args.slurm_job_id == 4:
-        args.model_type = "convolution"
-        args.folder_name = "pretrained_actor_prerotated_no_norm"
-        args.use_layer_normalization = False
     
-
 model_type = args.model_type
 
-if model_type == "linear":
-    from network_types import LinearActor
-    actor_class = LinearActor 
-elif model_type == "convolution":
-    from network_types import ActorConvolution_new2
-    actor_class = ActorConvolution_new2 
+
+from network_types import ActorConvolution_new2
+actor_class = ActorConvolution_new2 
 
 env_kwargs = {
         "spill_punish" : 5,
         "hit_reward": 1,
         "jerk_punish": 0.5,
+        "action_punish": 0.5,
         "particle_explosion_punish": 0,
         "max_timesteps": 500,
-        "scene_file": args.scene_file
+        "scene_file": args.scene_file,
+        "use_fill_limit": False
     }
 env = gym.make("WaterPouringEnvBase-v0", **env_kwargs)
 env = XRotationWrapper(env, prerotated=False)
@@ -108,15 +86,15 @@ env.close()
 for i in trange(args.train_steps):
     actor_optimizer.zero_grad()
 
-    state_jug, state_particles, distance_jug, distance_cup, time, action, next_state_jug, next_state_particles_positions, next_state_distance_jug, next_state_distance_cup, next_state_time, reward, not_done = replay_buffer.sample(args.batch_size)
+    state_jug, state_particles, distance_jug, distance_cup, other_features, action, next_state_jug, next_state_particles_positions, next_state_distance_jug, next_state_distance_cup, next_state_other_features, reward, not_done = replay_buffer.sample(args.batch_size)
 
-    actor_action = actor(state_jug, state_particles, distance_jug, distance_cup, time)
+    actor_action = actor(state_jug, state_particles, distance_jug, distance_cup, other_features)
 
     loss = loss_function(actor_action, action)
 
     results = [loss.item()]
     results = ';'.join([str(r) for r in results])
-    with open(f'./results/Pretrained_Actor_Loss.csv', 'a') as file:
+    with open(f'./results/Pretrained_Actor_Loss_No_Fill_Goal.csv', 'a') as file:
         file.write(results)
         file.write('\n')
     loss.backward()
