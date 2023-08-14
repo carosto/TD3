@@ -23,9 +23,17 @@ def eval_policy(policy, eval_env, seed, eval_episodes=10):
 	eval_env.seed(seed + 100)
 
 	avg_reward = 0.
-	for _ in range(eval_episodes):
-		state, done = eval_env.reset()[0], False
-		for i in range(env.max_timesteps):#while not done:
+
+	particle_counts = {}
+
+	fill_levels = np.linspace(87, 175, eval_episodes, dtype=int)
+	for k in range(eval_episodes):
+		if eval_env.use_fill_limit:
+			options = {'fixed fill goal': fill_levels[k]}
+		else:
+			options = None
+		state, done = eval_env.reset(options=options)[0], False
+		for i in range(env.max_timesteps):
 			action = policy.select_action(state)
 			state, reward, terminated, truncated, _ = eval_env.step(action)
 			avg_reward += reward
@@ -33,13 +41,15 @@ def eval_policy(policy, eval_env, seed, eval_episodes=10):
 				done = True
 				break
 		print('Particles in cup: ', env.simulation.n_particles_cup)
+		print('Particles spilled: ', env.simulation.n_particles_spilled)
+		particle_counts[eval_env.max_fill] = [env.simulation.n_particles_cup, env.simulation.n_particles_spilled]
 
 	avg_reward /= eval_episodes
 
 	print("---------------------------------------")
 	print(f"Evaluation over {eval_episodes} episodes: {avg_reward:.3f}")
 	print("---------------------------------------")
-	return avg_reward
+	return avg_reward, particle_counts
 
 
 if __name__ == "__main__":
@@ -86,6 +96,7 @@ if __name__ == "__main__":
 	#parser.add_argument("--scene_file",type=str, default="scene.json")
 
 	parser.add_argument("--prerotated_env", action="store_true") # Whether to use the prerotated position 
+	parser.add_argument("--full_action_space", action="store_true")
 	args = parser.parse_args()
 
 	if args.slurm_job_array:
@@ -200,16 +211,17 @@ if __name__ == "__main__":
 			args.max_timesteps_epoch = 500
 			args.model_type = "convolution"
 		elif args.seed == 21:
-			args.spill_punish = 20
-			args.hit_reward = 5
-			args.jerk_punish = 5
-			args.max_timesteps_epoch = 500
-			args.model_type = "convolution"
-		elif args.seed == 22:
 			args.spill_punish = 2.5
 			args.hit_reward = 2
-			args.jerk_punish = 0
-			args.action_punish = 0
+			args.jerk_punish = 0.01
+			args.action_punish = 0.1
+			args.max_timesteps_epoch = 1000
+			args.model_type = "convolution"
+		elif args.seed == 22:
+			args.spill_punish = 15
+			args.hit_reward = 0
+			args.jerk_punish = 0.1
+			args.action_punish = 3
 			args.max_timesteps_epoch = 500
 			args.model_type = "convolution"
 
@@ -243,14 +255,15 @@ if __name__ == "__main__":
 	}
 
 	env = gym.make(args.env, **env_kwargs)
-	env = XRotationWrapper(env, prerotated=more_env_kwargs["prerotated"])
+	if not args.full_action_space:
+		env = XRotationWrapper(env, prerotated=more_env_kwargs["prerotated"])
 
 	if args.deep_mimic:
 		from water_pouring.envs.pouring_env_imitation_reward_wrapper import ImitationRewardWrapper
 		deep_mimic_kwargs = {
 			"trajectory_path" : args.trajectory_path,
-			"weight_task_objective" : 0.5,
-			"weight_imitation" : 0.5,
+			"weight_task_objective" : 0,
+			"weight_imitation" : 1,
 			"weight_position" : 0,
 			"weight_rotation" : 1
 		}
@@ -264,7 +277,7 @@ if __name__ == "__main__":
 	torch.manual_seed(args.seed)
 	np.random.seed(args.seed)
 	
-	max_action = float(env.action_space.high[0])
+	max_action = env.action_space.high#float(env.action_space.high[0])
 
 	if args.model_type == "linear":
 		from network_types import LinearActor, LinearQNetwork 
@@ -311,9 +324,10 @@ if __name__ == "__main__":
 	
 	# Evaluate untrained policy
 	print('Evaluating untrained policy')
-	evaluations = [eval_policy(policy, env, args.seed, eval_episodes=2)]
+	eval_reward, eval_counts = eval_policy(policy, env, args.seed, eval_episodes=2)
+	evaluations = [[eval_reward, eval_counts]]
 	with open(f'./results/evaluations/eval_{args.model_id}_{args.seed}.csv', 'a') as file:
-		file.write(';'.join([str(0), str(evaluations[0])]))
+		file.write(';'.join([str(0), str(eval_reward), str(eval_counts)]))
 		file.write('\n')
 	print('Done evaluating untrained policy')
 
@@ -329,6 +343,9 @@ if __name__ == "__main__":
 	mod_kwargs = kwargs.copy()
 	mod_kwargs['actor_class'] = args.model_type
 	mod_kwargs['q_network_class'] = args.model_type
+	mod_kwargs['max_action'] = kwargs['max_action'].tolist()
+	mod_kwargs['policy_noise'] = kwargs['policy_noise'].tolist()
+	mod_kwargs['noise_clip'] = kwargs['noise_clip'].tolist()
 	del mod_kwargs['action_space']
 	del mod_kwargs['obs_space']
 
@@ -338,7 +355,9 @@ if __name__ == "__main__":
 		'eval_freq' : args.eval_freq,
 		'max_timesteps' : args.max_timesteps,
 		'expl_noise' : args.expl_noise,
-		'batch_size' : args.batch_size
+		'batch_size' : args.batch_size,
+		'behavioural_cloning' : args.behavioural_cloning,
+		'deep_mimic' : args.deep_mimic
 	}
 	
 	infos = {
@@ -423,9 +442,15 @@ if __name__ == "__main__":
 
 		# Evaluate episode
 		if (t + 1) % args.eval_freq == 0:
-			evaluations.append(eval_policy(policy, env, args.seed))
+			eval_reward, eval_counts = eval_policy(policy, env, args.seed)
+			"""evaluations.append(eval_policy(policy, env, args.seed))
 			with open(f'./results/evaluations/eval_{args.model_id}_{args.seed}.csv', 'a') as file:
 				file.write(';'.join([str(t+1), str(evaluations[-1])]))
+				file.write('\n')"""
+			
+			evaluations.append([eval_reward, eval_counts])
+			with open(f'./results/evaluations/eval_{args.model_id}_{args.seed}.csv', 'a') as file:
+				file.write(';'.join([str(t+1), str(eval_reward), str(eval_counts)]))
 				file.write('\n')
 			if args.save_model: policy.save(f"./models/{file_name}")
 			print("saved")
