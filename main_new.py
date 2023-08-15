@@ -77,7 +77,7 @@ if __name__ == "__main__":
 	# parameters for imitation learning
 	parser.add_argument("--behavioural_cloning", action="store_true") # toggle on if imitation learning is used
 	parser.add_argument("--actor_folder", default=None, type=str) # folder where the pretrained actor is located
-	parser.add_argument("--actor_name", default=None, type=str) # name appended to the actor (besides actor/actor_optimizer)
+	parser.add_argument("--actor_name", default="convolution", type=str) # name appended to the actor (besides actor/actor_optimizer)
 
 	parser.add_argument("--deep_mimic", action="store_true") # toggle on if deep mimic is used
 	parser.add_argument("--trajectory_path", default=None, type=str) # folder where the pretrained actor is located
@@ -218,10 +218,10 @@ if __name__ == "__main__":
 			args.max_timesteps_epoch = 1000
 			args.model_type = "convolution"
 		elif args.seed == 22:
-			args.spill_punish = 15
-			args.hit_reward = 0
-			args.jerk_punish = 0.1
-			args.action_punish = 3
+			args.spill_punish = 2.5
+			args.hit_reward = 2
+			args.jerk_punish = 0
+			args.action_punish = 0
 			args.max_timesteps_epoch = 500
 			args.model_type = "convolution"
 
@@ -284,9 +284,9 @@ if __name__ == "__main__":
 		actor_class = LinearActor 
 		q_network_class = LinearQNetwork
 	elif args.model_type == "convolution":
-		from network_types import ActorConvolution_new2, Q_networkConvolution_new2 
-		actor_class = ActorConvolution_new2 
-		q_network_class = Q_networkConvolution_new2
+		from network_types import Actor, Q_network 
+		actor_class = Actor 
+		q_network_class = Q_network
 	
 	kwargs = {
 		"actor_class": actor_class,

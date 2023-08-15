@@ -125,9 +125,9 @@ if __name__ == "__main__":
 	
 	max_action = float(env.action_space.high[0])
 
-	from network_types import ActorConvolution_new2, Q_networkConvolution_new2 
-	actor_class = ActorConvolution_new2 
-	q_network_class = Q_networkConvolution_new2
+	from network_types import Actor, Q_network 
+	actor_class = Actor 
+	q_network_class = Q_network
 
 	kwargs['actor_class'] = actor_class
 	kwargs['q_network_class'] = q_network_class

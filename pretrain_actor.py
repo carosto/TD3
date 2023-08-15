@@ -35,8 +35,8 @@ args = parser.parse_args()
 model_type = args.model_type
 
 
-from network_types import ActorConvolution_new2
-actor_class = ActorConvolution_new2 
+from network_types import Actor
+actor_class = Actor 
 
 env_kwargs = {
         "spill_punish" : 5,

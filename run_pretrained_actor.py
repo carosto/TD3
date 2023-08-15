@@ -56,12 +56,8 @@ if args.slurm_job_array:
 
 model_type = args.model_type
 
-if model_type == "linear":
-    from network_types import LinearActor
-    actor_class = LinearActor 
-elif model_type == "convolution":
-    from network_types import ActorConvolution_new2
-    actor_class = ActorConvolution_new2 
+from network_types import Actor
+actor_class = Actor 
 
 env_kwargs = {
         "spill_punish" : 5,

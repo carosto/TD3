@@ -118,14 +118,9 @@ if __name__ == "__main__":
 	
 	max_action = float(env.action_space.high[0])
 
-	if args.model_type == "linear":
-		from network_types import LinearActor, LinearQNetwork 
-		actor_class = LinearActor 
-		q_network_class = LinearQNetwork
-	elif args.model_type == "convolution":
-		from network_types import ActorConvolution_new2, Q_networkConvolution_new2 
-		actor_class = ActorConvolution_new2 
-		q_network_class = Q_networkConvolution_new2
+	from network_types import Actor, Q_network 
+	actor_class = Actor 
+	q_network_class = Q_network
 	
 	if args.read_infos:
 		kwargs['actor_class'] = actor_class
@@ -162,6 +157,7 @@ if __name__ == "__main__":
 		else:
 			policy_file = file_name if args.load_model == "default" else args.load_model
 			policy.load(f"./models/{policy_file}")
+			print('Loaded model')
 
 	options_reset = {'fixed fill goal': args.fill_limit} if args.fill_limit != -1 else None
 	state, done = env.reset(options=options_reset)[0], False

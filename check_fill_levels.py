@@ -119,9 +119,9 @@ if __name__ == "__main__":
 		actor_class = LinearActor 
 		q_network_class = LinearQNetwork
 	elif args.model_type == "convolution":
-		from network_types import ActorConvolution_new2, Q_networkConvolution_new2 
-		actor_class = ActorConvolution_new2 
-		q_network_class = Q_networkConvolution_new2
+		from network_types import Actor, Q_network 
+		actor_class = Actor 
+		q_network_class = Q_network
 	
 	if args.read_infos:
 		kwargs['actor_class'] = actor_class
