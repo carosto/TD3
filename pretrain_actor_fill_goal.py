@@ -53,16 +53,19 @@ env = XRotationWrapper(env, prerotated=False)
 actor = actor_class(env.observation_space, env.action_space, layer_normalization=args.use_layer_normalization).to(device)
 actor_optimizer = torch.optim.Adam(actor.parameters(), lr=args.lr)
 
-loss_function = nn.MSELoss()
-
 folder = args.folder_name
 os.makedirs(folder, exist_ok=True)
 
+actor.load_state_dict(torch.load(os.path.join(folder, f"actor_{model_type}"), map_location=device))
+actor_optimizer.load_state_dict(torch.load(os.path.join(folder, f"actor_optimizer_{model_type}"), map_location=device))
+
+loss_function = nn.MSELoss()
+
 replay_buffer = utils.ReplayBuffer(env.observation_space, env.action_space)
 
-fill_goals = np.arange(87, 176)
+fill_goals = [91, 117]# np.arange(87, 176)
 
-for _ in trange(5):
+for _ in trange(10):
     # put steps of trajectory in replay buffer
     for fill_goal in tqdm(fill_goals):
         state = env.reset(options={'fixed fill goal': fill_goal})[0]
@@ -70,7 +73,7 @@ for _ in trange(5):
         step = 0
         turning_forward = True
         turning_backward = False
-        pouring_x = (80-65)/(175-87) * fill_goal + 50 + random.uniform(-5, 5)#random.uniform(60,80)
+        pouring_x = (80-65)/(175-87) * fill_goal + 50 + random.uniform(-1, 1)#random.uniform(60,80)
 
         stage_turning = 0
 
@@ -123,8 +126,6 @@ for _ in trange(5):
             sum_reward += reward
         print("Cup: ", env.simulation.n_particles_cup)
         print("Spilled: ", env.simulation.n_particles_spilled)
-        break
-    break
 env.close()
 
 for i in trange(args.train_steps):
