@@ -47,6 +47,7 @@ if __name__ == "__main__":
 	parser.add_argument("--max_timesteps_epoch",type=int, default=500)
 	parser.add_argument("--scene_file",type=str, default="scene_test.json")
 	parser.add_argument("--output_directory", type=str, default="SimulationOutput")
+	parser.add_argument("--use_fill_limit", action="store_true")
 	parser.add_argument("--deep_mimic", action="store_true")
 
 	parser.add_argument("--prerotated_env", action="store_true") # Whether to use the prerotated position 
@@ -67,7 +68,8 @@ if __name__ == "__main__":
         "particle_explosion_punish": args.explosion_punish,
         "max_timesteps": args.max_timesteps_epoch,
         "scene_file": args.scene_file,
-		"output_directory": args.output_directory
+		"output_directory": args.output_directory,
+		"use_fill_limit": args.use_fill_limit
     }
 
 	more_env_kwargs = {
