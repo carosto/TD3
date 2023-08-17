@@ -42,14 +42,24 @@ def eval_policy(policy, eval_env, seed, eval_episodes=10):
 				break
 		print('Particles in cup: ', env.simulation.n_particles_cup)
 		print('Particles spilled: ', env.simulation.n_particles_spilled)
-		particle_counts[eval_env.max_fill] = [env.simulation.n_particles_cup, env.simulation.n_particles_spilled]
-
+		if eval_env.max_fill in particle_counts.keys():
+			particle_counts[eval_env.max_fill].append([env.simulation.n_particles_cup, env.simulation.n_particles_spilled])
+		else:
+			particle_counts[eval_env.max_fill] = [[env.simulation.n_particles_cup, env.simulation.n_particles_spilled]]
+	
+	particle_counts_avg = {}
+	for key, value in particle_counts.items():
+    # Calculate the average of the first and second entries of each inner list
+		cup_avg = sum(x[0] for x in value) / len(value)
+		spilled_avg = sum(x[1] for x in value) / len(value)
+		
+		particle_counts_avg[key] = [cup_avg, spilled_avg]
 	avg_reward /= eval_episodes
 
 	print("---------------------------------------")
 	print(f"Evaluation over {eval_episodes} episodes: {avg_reward:.3f}")
 	print("---------------------------------------")
-	return avg_reward, particle_counts
+	return avg_reward, particle_counts_avg
 
 
 if __name__ == "__main__":
@@ -218,10 +228,10 @@ if __name__ == "__main__":
 			args.max_timesteps_epoch = 1000
 			args.model_type = "convolution"
 		elif args.seed == 22:
-			args.spill_punish = 2.5
-			args.hit_reward = 2
-			args.jerk_punish = 0
-			args.action_punish = 0
+			args.spill_punish = 25
+			args.hit_reward = 20
+			args.jerk_punish = 0.1
+			args.action_punish = 1
 			args.max_timesteps_epoch = 500
 			args.model_type = "convolution"
 
