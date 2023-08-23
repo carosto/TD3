@@ -228,10 +228,10 @@ if __name__ == "__main__":
 			args.max_timesteps_epoch = 1000
 			args.model_type = "convolution"
 		elif args.seed == 22:
-			args.spill_punish = 25
-			args.hit_reward = 20
-			args.jerk_punish = 0.1
-			args.action_punish = 1
+			args.spill_punish = 2.5
+			args.hit_reward = 2
+			args.jerk_punish = 0
+			args.action_punish = 0
 			args.max_timesteps_epoch = 500
 			args.model_type = "convolution"
 
@@ -272,8 +272,8 @@ if __name__ == "__main__":
 		from water_pouring.envs.pouring_env_imitation_reward_wrapper import ImitationRewardWrapper
 		deep_mimic_kwargs = {
 			"trajectory_path" : args.trajectory_path,
-			"weight_task_objective" : 0,
-			"weight_imitation" : 1,
+			"weight_task_objective" : 0.9,
+			"weight_imitation" : 0.1,
 			"weight_position" : 0,
 			"weight_rotation" : 1
 		}
@@ -387,12 +387,12 @@ if __name__ == "__main__":
 	for t in trange(int(args.max_timesteps)):
 		
 		episode_timesteps += 1
-		"""if t >= args.start_timesteps:
-			if t % 1000 == 0:
-				policy.save(f"./models/{file_name}_ts_{t}")"""
 		# Select action randomly or according to policy
 		if t < args.start_timesteps:
-			action = env.action_space.sample()
+			if args.behavioural_cloning:
+				action = policy.select_action(state)
+			else:
+				action = env.action_space.sample()
 		else:
 			noise = np.random.normal(0, max_action * args.expl_noise, size=env.action_space.shape[0]) 
 			action = (
@@ -411,6 +411,9 @@ if __name__ == "__main__":
 
 		state = next_state
 		episode_reward += reward
+
+		if t < args.start_timesteps and args.behavioural_cloning:
+			policy.train_critic(replay_buffer, args.batch_size)
 
 		# Train agent after collecting sufficient data
 		if t >= args.start_timesteps:

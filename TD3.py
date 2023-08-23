@@ -115,6 +115,37 @@ class TD3(object):
             return [critic_loss, actor_loss]
         return [critic_loss]
 
+    def train_critic(self, replay_buffer, batch_size=256, policy_noise=0):
+        # Sample replay buffer 
+        state_jug, state_particles, distance_jug, distance_cup, other_features, action, next_state_jug, next_state_particles, next_state_distance_jug, next_state_distance_cup, next_state_other_features, reward, not_done = replay_buffer.sample(batch_size)
+
+        with torch.no_grad():
+            # Select action according to policy and add clipped noise
+            noise = (
+                torch.randn_like(action) * policy_noise
+            ).clamp(-self.noise_clip, self.noise_clip)
+            
+            next_action = (
+                self.actor_target(next_state_jug, next_state_particles, next_state_distance_jug, next_state_distance_cup, next_state_other_features) + noise
+            ).clamp(-self.max_action, self.max_action)
+
+            # Compute the target Q value
+            target_Q1, target_Q2 = self.critic_target(next_state_jug, next_state_particles, next_state_distance_jug, next_state_distance_cup, next_state_other_features, next_action)
+            target_Q = torch.min(target_Q1, target_Q2)
+            target_Q = reward + not_done * self.discount * target_Q # Bellman Equation
+            
+        # Get current Q estimates
+        current_Q1, current_Q2 = self.critic(state_jug, state_particles, distance_jug, distance_cup, other_features, action)
+
+        # Compute critic loss
+        critic_loss = F.mse_loss(current_Q1, target_Q) + F.mse_loss(current_Q2, target_Q) # should be minimized
+
+        # Optimize the critic
+        self.critic_optimizer.zero_grad()
+        critic_loss.backward()
+        self.critic_optimizer.step()
+
+        return [critic_loss]
 
     def save(self, folder):
         os.makedirs(folder, exist_ok=True)
