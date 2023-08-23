@@ -43,6 +43,7 @@ if __name__ == "__main__":
 	parser.add_argument("--hit_reward",type=float, default=0.5)
 	parser.add_argument("--spill_punish",type=float, default=0.5)
 	parser.add_argument("--jerk_punish",type=float, default=0)
+	parser.add_argument("--action_punish", type=float, default=0)
 	parser.add_argument("--explosion_punish",type=float, default=0)
 	parser.add_argument("--max_timesteps_epoch",type=int, default=500)
 	parser.add_argument("--scene_file",type=str, default="scene_test.json")
@@ -65,6 +66,7 @@ if __name__ == "__main__":
         "spill_punish" : args.spill_punish,
         "hit_reward": args.hit_reward,
         "jerk_punish": args.jerk_punish,
+		"action_punish": args.action_punish,
         "particle_explosion_punish": args.explosion_punish,
         "max_timesteps": args.max_timesteps_epoch,
         "scene_file": args.scene_file,
@@ -167,6 +169,12 @@ if __name__ == "__main__":
 	episode_timesteps = 0
 	episode_num = 0
 
+	rotation = [env.current_rotation_internal[0]]
+	rotation = ';'.join([str(r) for r in rotation])
+	with open(f'./results/rotations/TD3_WaterPouring_Rotation_{args.model_id}_{args.seed}.csv', 'a') as file:
+		file.write(rotation)
+		file.write('\n')
+
 	for t in trange(int(env_kwargs["max_timesteps"])):
 		
 		episode_timesteps += 1
@@ -176,6 +184,19 @@ if __name__ == "__main__":
 
 		# Perform action
 		next_state, reward, terminated, truncated, _ = env.step(action) 
+
+		rotation = [env.current_rotation_internal[0]]
+		rotation = ';'.join([str(r) for r in rotation])
+		with open(f'./results/rotations/TD3_WaterPouring_Rotation_{args.model_id}_{args.seed}.csv', 'a') as file:
+			file.write(rotation)
+			file.write('\n')
+
+		actions = [action[0]]
+		actions = ';'.join([str(r) for r in actions])
+		with open(f'./results/actions/TD3_WaterPouring_Action_{args.model_id}_{args.seed}.csv', 'a') as file:
+			file.write(actions)
+			file.write('\n')
+
 		if terminated or truncated:
 			done = True
 			print("reached endstate")
