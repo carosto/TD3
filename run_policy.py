@@ -169,6 +169,12 @@ if __name__ == "__main__":
 	episode_timesteps = 0
 	episode_num = 0
 
+	if not os.path.exists("./results/rotations"):
+		os.makedirs("./results/rotations")
+
+	if not os.path.exists("./results/actions"):
+		os.makedirs("./results/actions")
+
 	rotation = [env.current_rotation_internal[0]]
 	rotation = ';'.join([str(r) for r in rotation])
 	with open(f'./results/rotations/TD3_WaterPouring_Rotation_{args.model_id}_{args.seed}.csv', 'a') as file:
