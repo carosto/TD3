@@ -177,7 +177,7 @@ if __name__ == "__main__":
 
 	rotation = [env.current_rotation_internal[0]]
 	rotation = ';'.join([str(r) for r in rotation])
-	with open(f'./results/rotations/TD3_WaterPouring_Rotation_{args.model_id}_{args.seed}.csv', 'a') as file:
+	with open(f'./results/rotations/{file_name}.csv', 'a') as file:
 		file.write(rotation)
 		file.write('\n')
 
@@ -193,13 +193,13 @@ if __name__ == "__main__":
 
 		rotation = [env.current_rotation_internal[0]]
 		rotation = ';'.join([str(r) for r in rotation])
-		with open(f'./results/rotations/TD3_WaterPouring_Rotation_{args.model_id}_{args.seed}.csv', 'a') as file:
+		with open(f'./results/rotations/{file_name}.csv', 'a') as file:
 			file.write(rotation)
 			file.write('\n')
 
 		actions = [action[0]]
 		actions = ';'.join([str(r) for r in actions])
-		with open(f'./results/actions/TD3_WaterPouring_Action_{args.model_id}_{args.seed}.csv', 'a') as file:
+		with open(f'./results/actions/{file_name}.csv', 'a') as file:
 			file.write(actions)
 			file.write('\n')
 
