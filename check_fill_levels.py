@@ -34,7 +34,7 @@ if __name__ == "__main__":
 	parser.add_argument("--just_actor", default="", type=str) # load just the actor for TD3
 
 	parser.add_argument("--model_type", type=str, default="convolution")
-	parser.add_argument("--use_layer_normalization", action="store_true")
+	parser.add_argument("--use_layer_normalization", action="store_true", default=True)
 
 	parser.add_argument("--read_infos", action="store_true") # whether to read the models parameters from the info file or not
 	parser.add_argument("--automatic_output_dir", action="store_true") # if set, the output directory is set automatically, based on the seed
@@ -163,33 +163,39 @@ if __name__ == "__main__":
 	fill_goals = np.arange(87, 176)
 	
 	for goal in tqdm(fill_goals):
-		options_reset = {'fixed fill goal': goal}
-		state, done = env.reset(options=options_reset)[0], False
-		episode_reward = 0
-		episode_timesteps = 0
-		episode_num = 0
+		for i in range(10):
+			options_reset = {'fixed fill goal': goal}
+			state, done = env.reset(options=options_reset)[0], False
+			max_angle = env.current_rotation_internal[0]
+			episode_reward = 0
+			episode_timesteps = 0
+			episode_num = 0
 
-		for t in trange(int(env_kwargs["max_timesteps"])):
-			
-			episode_timesteps += 1
+			for t in trange(int(env_kwargs["max_timesteps"])):
+				
+				episode_timesteps += 1
 
-			action = policy.select_action(state)
+				action = policy.select_action(state)
 
-			# Perform action
-			next_state, reward, terminated, truncated, _ = env.step(action) 
-			if terminated or truncated:
-				done = True
-				print("reached endstate")
-				break
+				# Perform action
+				next_state, reward, terminated, truncated, _ = env.step(action) 
 
-			state = next_state
-			episode_reward += reward
-		results = [goal, env.simulation.n_particles_cup, env.simulation.n_particles_spilled, episode_reward]
-		results = ';'.join([str(r) for r in results])
-		with open(f'./results/fill_levels/{file_name}.csv', 'a') as file:
-			file.write(results)
-			file.write('\n')
+				if env.current_rotation_internal[0] > max_angle:
+					max_angle = env.current_rotation_internal[0]
 
-		print(env.simulation.n_particles_cup)
-		print(env.simulation.n_particles_spilled)
-		print(episode_reward)
+				if terminated or truncated:
+					done = True
+					print("reached endstate")
+					break
+
+				state = next_state
+				episode_reward += reward
+			results = [goal, env.simulation.n_particles_cup, env.simulation.n_particles_spilled, episode_reward, max_angle]
+			results = ';'.join([str(r) for r in results])
+			with open(f'./results/fill_levels/{file_name}_3.csv', 'a') as file:
+				file.write(results)
+				file.write('\n')
+			print(max_angle)
+			print(env.simulation.n_particles_cup)
+			print(env.simulation.n_particles_spilled)
+			print(episode_reward)
