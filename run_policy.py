@@ -162,55 +162,56 @@ if __name__ == "__main__":
 			policy_file = file_name if args.load_model == "default" else args.load_model
 			policy.load(f"./models/{policy_file}")
 			print('Loaded model')
+	fill_levels = np.linspace(87, 175, 10, dtype=int)
+	for goal in fill_levels:
+		options_reset = {'fixed fill goal': goal} #if args.fill_limit != -1 else None
+		state, done = env.reset(options=options_reset)[0], False
+		episode_reward = 0
+		episode_timesteps = 0
+		episode_num = 0
 
-	options_reset = {'fixed fill goal': args.fill_limit} if args.fill_limit != -1 else None
-	state, done = env.reset(options=options_reset)[0], False
-	episode_reward = 0
-	episode_timesteps = 0
-	episode_num = 0
+		if not os.path.exists("./results/rotations"):
+			os.makedirs("./results/rotations")
 
-	if not os.path.exists("./results/rotations"):
-		os.makedirs("./results/rotations")
-
-	if not os.path.exists("./results/actions"):
-		os.makedirs("./results/actions")
-
-	rotation = [env.current_rotation_internal[0]]
-	rotation = ';'.join([str(r) for r in rotation])
-	with open(f'./results/rotations/{file_name}.csv', 'a') as file:
-		file.write(rotation)
-		file.write('\n')
-
-	for t in trange(int(env_kwargs["max_timesteps"])):
-		
-		episode_timesteps += 1
-
-		action = policy.select_action(state)
-		print(action)
-
-		# Perform action
-		next_state, reward, terminated, truncated, _ = env.step(action) 
+		if not os.path.exists("./results/actions"):
+			os.makedirs("./results/actions")
 
 		rotation = [env.current_rotation_internal[0]]
 		rotation = ';'.join([str(r) for r in rotation])
-		with open(f'./results/rotations/{file_name}.csv', 'a') as file:
+		with open(f'./results/rotations/{file_name}_{env.max_fill}.csv', 'a') as file:
 			file.write(rotation)
 			file.write('\n')
 
-		actions = [action[0]]
-		actions = ';'.join([str(r) for r in actions])
-		with open(f'./results/actions/{file_name}.csv', 'a') as file:
-			file.write(actions)
-			file.write('\n')
+		for t in trange(int(env_kwargs["max_timesteps"])):
+			
+			episode_timesteps += 1
 
-		if terminated or truncated:
-			done = True
-			print("reached endstate")
-			break
+			action = policy.select_action(state)
+			print(action)
 
-		state = next_state
-		episode_reward += reward
+			# Perform action
+			next_state, reward, terminated, truncated, _ = env.step(action) 
 
-print(env.simulation.n_particles_cup)
-print(env.simulation.n_particles_spilled)
-print(episode_reward)
+			rotation = [env.current_rotation_internal[0]]
+			rotation = ';'.join([str(r) for r in rotation])
+			with open(f'./results/rotations/{file_name}_{env.max_fill}.csv', 'a') as file:
+				file.write(rotation)
+				file.write('\n')
+
+			actions = [action[0]]
+			actions = ';'.join([str(r) for r in actions])
+			with open(f'./results/actions/{file_name}_{env.max_fill}.csv', 'a') as file:
+				file.write(actions)
+				file.write('\n')
+
+			if terminated or truncated:
+				done = True
+				print("reached endstate")
+				break
+
+			state = next_state
+			episode_reward += reward
+
+	print(env.simulation.n_particles_cup)
+	print(env.simulation.n_particles_spilled)
+	print(episode_reward)
