@@ -1,4 +1,4 @@
-# python run_policy.py --seed 1 --save_model --max_timesteps 1000 --eval_freq 100
+# script to evaluate the performance of a model without fill level and save them
 
 import numpy as np
 import torch

@@ -23,10 +23,8 @@ class Critic(nn.Module):
 
 class Actor(nn.Module):
     def __init__(self,obs_space,action_space,layer_normalization=False):
-        # State expected to be tuple of 0: Box features, 1: convolutional part
         super(Actor, self).__init__()
         
-        #self.architecture = (256,256)
         self.architecture = (500,400,300)
 
         self.n_layers = 3
@@ -104,7 +102,6 @@ class Q_network(nn.Module):
     def __init__(self, obs_space, action_space, layer_normalization=False):
         super(Q_network, self).__init__()
 
-        #self.architecture = (256,256)
         self.architecture = (500,400,300)
 
         self.n_layers = 3
@@ -164,6 +161,7 @@ class Q_network(nn.Module):
         q = F.relu(self.linear_distcup1(distance_cup))
         dist_cup = self.linear_distcup2(q)
 
+        # combine
         q = torch.cat([particle_features ,state_features,other_features, dist_jug, dist_cup, action],1)
         if self.layer_normalization:
             q = self.lnorm1(q)

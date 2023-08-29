@@ -1,3 +1,5 @@
+# script to pretrain an actor on random trajectories provided. No fill goal.
+
 from water_pouring.envs.pouring_env_x_rotation_wrapper import XRotationWrapper
 import gymnasium as gym
 import numpy as np
@@ -83,6 +85,7 @@ for k in trange(100):
             break
 env.close()
 
+# train the actor
 for i in trange(args.train_steps):
     actor_optimizer.zero_grad()
 

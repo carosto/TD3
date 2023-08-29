@@ -63,8 +63,9 @@ loss_function = nn.MSELoss()
 
 replay_buffer = utils.ReplayBuffer(env.observation_space, env.action_space)
 
-fill_goals = [91, 117]# np.arange(87, 176)
+fill_goals = np.arange(87, 176)
 
+# generate trajectory based on the fill level goal
 for _ in trange(10):
     # put steps of trajectory in replay buffer
     for fill_goal in tqdm(fill_goals):
@@ -73,7 +74,7 @@ for _ in trange(10):
         step = 0
         turning_forward = True
         turning_backward = False
-        pouring_x = (80-65)/(175-87) * fill_goal + 50 + random.uniform(-1, 1)#random.uniform(60,80)
+        pouring_x = (80-65)/(175-87) * fill_goal + 50 + random.uniform(-1, 1)
 
         stage_turning = 0
 
@@ -128,6 +129,7 @@ for _ in trange(10):
         print("Spilled: ", env.simulation.n_particles_spilled)
 env.close()
 
+# train the actor 
 for i in trange(args.train_steps):
     actor_optimizer.zero_grad()
 

@@ -1,3 +1,5 @@
+# script to pretrain an actor on the full action space with human data. Not finished and not used in the thesis.
+
 from water_pouring.envs.pouring_env_x_rotation_wrapper import XRotationWrapper
 import gymnasium as gym
 import numpy as np
@@ -59,6 +61,7 @@ os.makedirs(folder, exist_ok=True)
 replay_buffer = utils.ReplayBuffer(env.observation_space, env.action_space)
 
 env.close()
+
 # put steps of trajectory in replay buffer
 for k in trange(91):
     with open(f"{args.trajectories_folder}/infos/infos_{k}.json") as json_file:
@@ -99,6 +102,7 @@ for k in trange(91):
     env.reset(options={'cleanup': True})
     env.close()
 
+# train the actor
 for i in trange(args.train_steps):
     actor_optimizer.zero_grad()
 

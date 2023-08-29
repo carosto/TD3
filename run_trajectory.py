@@ -1,3 +1,6 @@
+# script to run a pregenerated trajectory
+# usage: python run_trajectory.py --trajectory_index 0
+
 from water_pouring.envs.pouring_env_x_rotation_wrapper import XRotationWrapper
 import gymnasium as gym
 import numpy as np

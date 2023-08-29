@@ -1,4 +1,4 @@
-# python run_policy.py --seed 1 --save_model --max_timesteps 1000 --eval_freq 100
+# script to check performance of agent with fill level and save the results
 
 import numpy as np
 import torch
@@ -192,7 +192,7 @@ if __name__ == "__main__":
 				episode_reward += reward
 			results = [goal, env.simulation.n_particles_cup, env.simulation.n_particles_spilled, episode_reward, max_angle]
 			results = ';'.join([str(r) for r in results])
-			with open(f'./results/fill_levels/{file_name}_3.csv', 'a') as file:
+			with open(f'./results/fill_levels/{file_name}.csv', 'a') as file:
 				file.write(results)
 				file.write('\n')
 			print(max_angle)

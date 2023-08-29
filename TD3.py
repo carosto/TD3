@@ -7,7 +7,6 @@ import torch.nn.functional as F
 
 from network_types import Critic
 
-
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 if torch.cuda.is_available():

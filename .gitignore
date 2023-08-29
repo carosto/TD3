@@ -5,3 +5,7 @@ RandomTrajectories/
 pretrained_models/
 pretrained_models_gpu/
 pretrained_models_500/
+pretrained_actor_no_fill_goal/
+pretrained_actor_human/
+pretrained_actor_fill_goal/
+HumanTrajectories/
