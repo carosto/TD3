@@ -52,7 +52,7 @@ class ReplayBuffer(object):
 			torch.FloatTensor(self.state_particles_position[ind]).to(self.device),
 			torch.FloatTensor(self.distance_jug[ind]).to(self.device),
 			torch.FloatTensor(self.distance_cup[ind]).to(self.device),
-			torch.FloatTensor(self.other_features[ind]).to(self.device),,
+			torch.FloatTensor(self.other_features[ind]).to(self.device),
 			torch.FloatTensor(self.action[ind]).to(self.device),
 			torch.FloatTensor(self.next_state_jug[ind]).to(self.device),
 			torch.FloatTensor(self.next_state_particles_position[ind]).to(self.device),
